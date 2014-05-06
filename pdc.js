@@ -4,22 +4,10 @@ var xml2js = require('xml2js');
 var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
+var js2xmlparser = require("js2xmlparser");
+var fs = require('fs');
 
 function onRequest(request, response) {
-
-	var config = {
-		xsltPath: 'discount.xsl',
-		sourcePath: 'order.xml',
-		result: 'result.xml',
-		params: {
-			adiscount: '2014/08/02'
-		},
-		props: {
-			indent: 'yes'
-		}
-	};
-
-
 
   switch (request.url){
    
@@ -30,12 +18,34 @@ function onRequest(request, response) {
     break;
 
     case ("/xml"):
-		xslt4node.transform(config, function (err) {
-		    if (err) {
-		        console.log(err);
-		    }
-		    finishRequest(  response , "done" );
-		});
+
+      var json = readJson(function(data){
+        //console.log(js2xmlparser("", data));
+        //var result = js2xmlparser("", json);
+        
+
+        var builder = new xml2js.Builder();
+        var xml = builder.buildObject( JSON.parse(data) );
+        finishRequest(  response ,  xml );
+        //finishRequest(  response ,  js2xmlparser("", JSON.parse(data) ) );
+        /*var config = {
+          xsltPath: 'discount.xsl',
+          sourcePath: 'order.xml',
+          result: 'result.xml',
+          props: {
+            indent: 'yes'
+          }
+        };
+        
+        xslt4node.transform(config, function (err) {
+            if (err) {
+                console.log(err);
+            }
+            finishRequest(  response ,xml );
+        });*/
+
+      });
+    
 
     break;
 
@@ -58,6 +68,12 @@ var getMapping = function(callback){
           });
       });
     
+}
+
+var readJson = function(callback){
+  fs.readFile('jsonparsing.js', function(err, data) {
+      callback(data);
+    });
 }
 
 function finishRequest(response, message){
