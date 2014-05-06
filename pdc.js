@@ -9,6 +9,20 @@ var fs = require('fs');
 
 function onRequest(request, response) {
 
+	var config = {
+		xsltPath: 'discount.xsl',
+		sourcePath: 'order.xml',
+		result: 'result.xml',
+		params: {
+			adiscount: '2014/08/02'
+		},
+		props: {
+			indent: 'yes'
+		}
+	};
+
+
+
   switch (request.url){
    
     case ("/"):
