@@ -4,7 +4,7 @@ var xml2js = require('xml2js');
 var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
-var enumerable = require('linq');
+var linq = require('node-linq').LINQ;
 
 function onRequest(request, response) {
 
@@ -31,10 +31,11 @@ function onRequest(request, response) {
     break;
     case ("/map"):
       getJsonFromFile(function(res){
-        enumerable.From(res).where(function(x){return x.task});
+
+        var result = new linq(res).where(function(x){return x=="process"}).ToArray();
 
 
-        finishRequest(response,JSON.stringify(res, null, 4));
+        
       });
     break;
     case ("/xml"):

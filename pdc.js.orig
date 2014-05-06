@@ -3,38 +3,61 @@ var fs = require('fs');
 var xml2js = require('xml2js');
 var reader = require ("buffered-reader");
 var cache = require('memory-cache');
-<<<<<<< HEAD
 var xslt4node = require('xslt4node');
+<<<<<<< HEAD
+var enumerable = require('linq');
+=======
 var js2xmlparser = require("js2xmlparser");
 var fs = require('fs');
-=======
-//var xslt4node = require('xslt4node');
->>>>>>> 63c6e3280079c0a65abd9c69fcba2997ecdbb521
+>>>>>>> 4206953b648dbaf84cdd2f50c1710fff911c92ac
 
 function onRequest(request, response) {
 
+	var config = {
+		xsltPath: 'discount.xsl',
+		sourcePath: 'order.xml',
+		result: 'result.xml',
+		params: {
+			adiscount: '2014/08/02'
+		},
+		props: {
+			indent: 'yes'
+		}
+	};
+
   switch (request.url){
-   
     case ("/"):
-      getMapping(function(res){
-        finishRequest(  response , JSON.stringify(res) );
+      getJsonFromFile(function(res){
+        finishRequest(response,JSON.stringify(res, null, 4));
       });
     break;
+    case ("/map"):
+      getJsonFromFile(function(res){
+        enumerable.From(res).where(function(x){return x.task});
 
+
+        finishRequest(response,JSON.stringify(res, null, 4));
+      });
+    break;
     case ("/xml"):
+<<<<<<< HEAD
+		xslt4node.transform(config, function (err) {
+		    if (err) {
+		        console.log(err);
+		    }
+		    finishRequest(response , "done" );
+		});
+=======
 
-      var json = readJson(function(data){
-        //console.log(js2xmlparser("", data));
-        //var result = js2xmlparser("", json);
-        
+      readJson(function(data){        
 
         var builder = new xml2js.Builder();
         var xml = builder.buildObject( JSON.parse(data) );
-        finishRequest(  response ,  xml );
+        //finishRequest(  response ,  xml );
         //finishRequest(  response ,  js2xmlparser("", JSON.parse(data) ) );
-        /*var config = {
+        var config = {
           xsltPath: 'discount.xsl',
-          sourcePath: 'order.xml',
+          source: xml,
           result: 'result.xml',
           props: {
             indent: 'yes'
@@ -45,14 +68,16 @@ function onRequest(request, response) {
             if (err) {
                 console.log(err);
             }
-            finishRequest(  response ,xml );
-        });*/
+            getResult(function(res){
+              finishRequest(  response , builder.buildObject(res) );
+            });
+        });
 
       });
     
 
+>>>>>>> 4206953b648dbaf84cdd2f50c1710fff911c92ac
     break;
-
     default:
       finishRequest(response, "404 Error");
       break;
@@ -60,10 +85,52 @@ function onRequest(request, response) {
 
 };
 
-var getMapping = function(callback){
+<<<<<<< HEAD
+function nameProcessor(name) {
+  var prefixMatch = new RegExp(/(?!xmlns)^.*:/);
+  return  name.replace(prefixMatch, '');
+}
 
+var getJsonFromFile = function(callback){
+      if (cache.get("jsonResult")!=null){
+       callback(cache.get("jsonResult"))
+       console.log("element picked up from cache");
+      }
+      else{
+        var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
+
+        fs.readFile('process.bpmn', function(err, data) {
+          parser.parseString(data,
+            function (err, result) {
+            
+
+=======
+var getMapping = function(callback){
       var parser = new xml2js.Parser();
       fs.readFile('process.bpmn', function(err, data) {
+          parser.parseString(data, function (err, result) {
+>>>>>>> 4206953b648dbaf84cdd2f50c1710fff911c92ac
+            var jsonFile = JSON.stringify(result);
+            var newResult = JSON.parse(jsonFile);
+            cache.put("jsonResult", newResult);
+            callback( newResult );
+          });
+<<<<<<< HEAD
+        });
+      }
+=======
+      });
+}
+
+var readJson = function(callback){
+  fs.readFile('jsonparsing.js', function(err, data) {
+      callback(data);
+    });
+}
+
+var getResult = function(callback){
+      var parser = new xml2js.Parser();
+      fs.readFile('result.xml', function(err, data) {
           parser.parseString(data, function (err, result) {
             var jsonFile = JSON.stringify(result);
             var newResult = JSON.parse(jsonFile);
@@ -71,13 +138,7 @@ var getMapping = function(callback){
             callback( newResult );
           });
       });
-    
-}
-
-var readJson = function(callback){
-  fs.readFile('jsonparsing.js', function(err, data) {
-      callback(data);
-    });
+>>>>>>> 4206953b648dbaf84cdd2f50c1710fff911c92ac
 }
 
 function finishRequest(response, message){
@@ -88,3 +149,4 @@ function finishRequest(response, message){
 
 var server = http.createServer(onRequest);
 server.listen(8082);
+console.log("Server listening...");
