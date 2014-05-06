@@ -20,7 +20,10 @@ function onRequest(request, response) {
 		}
 	};
 
+
+
   switch (request.url){
+   
     case ("/"):
       getJsonFromFile(function(res){
         finishRequest(response,JSON.stringify(res, null, 4));
@@ -39,9 +42,11 @@ function onRequest(request, response) {
 		    if (err) {
 		        console.log(err);
 		    }
-		    finishRequest(response , "done" );
+		    finishRequest(  response , "done" );
 		});
+
     break;
+
     default:
       finishRequest(response, "404 Error");
       break;
@@ -52,6 +57,20 @@ function onRequest(request, response) {
 function nameProcessor(name) {
   var prefixMatch = new RegExp(/(?!xmlns)^.*:/);
   return  name.replace(prefixMatch, '');
+}
+
+var getMapping = function(callback){
+
+      var parser = new xml2js.Parser();
+      fs.readFile('process.bpmn', function(err, data) {
+          parser.parseString(data, function (err, result) {
+            var jsonFile = JSON.stringify(result);
+            var newResult = JSON.parse(jsonFile);
+            cache.put("mapping", newResult);
+            callback( newResult );
+          });
+      });
+    
 }
 
 var getJsonFromFile = function(callback){
@@ -84,4 +103,3 @@ function finishRequest(response, message){
 
 var server = http.createServer(onRequest);
 server.listen(8082);
-console.log("Server listening...");
