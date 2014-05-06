@@ -3,7 +3,7 @@ var fs = require('fs');
 var xml2js = require('xml2js');
 var reader = require ("buffered-reader");
 var cache = require('memory-cache');
-var xslt4node = require('xslt4node');
+//var xslt4node = require('xslt4node');
 
 function onRequest(request, response) {
 
