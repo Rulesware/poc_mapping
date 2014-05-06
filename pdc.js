@@ -50,9 +50,8 @@ function onRequest(request, response) {
 };
 
 function nameProcessor(name) {
-  console.log(name);
-  console.log("/n");
-  return name;//.replace('bpmn2:', '');
+  var prefixMatch = new RegExp(/(?!xmlns)^.*:/);
+  return  name.replace(prefixMatch, '');
 }
 
 var getJsonFromFile = function(callback){
@@ -61,13 +60,12 @@ var getJsonFromFile = function(callback){
        console.log("element picked up from cache");
       }
       else{
-        var parser = new xml2js.Parser();
+        var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
+
         fs.readFile('process.bpmn', function(err, data) {
-          parser.parseString(data,{stripPrefix: "true"},
+          parser.parseString(data,
             function (err, result) {
-            //if(err=!null){
-              console.log("2"); //finishRequest(response, "404 Error");
-            //}
+            
 
             var jsonFile = JSON.stringify(result);
             var newResult = JSON.parse(jsonFile);
