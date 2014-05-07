@@ -32,6 +32,7 @@ function onRequest(request, response) {
         finishRequest(response,JSON.stringify(res, null, 4));
       });
     break;
+
     case ("/map"):
       getJsonFromFile().then(function(res){
             console.log("getJsonFromFile:resolved")
@@ -40,12 +41,6 @@ function onRequest(request, response) {
                 console.log("converterAsync: "+result);
                 finishRequest(response, "mapping done");
             })
-      });
-
-        //var result = new linq(res).where(function(x){return x=="process"}).ToArray();
-
-
-        
       });
     break;
 
@@ -137,6 +132,7 @@ case ("/map2"):
       finishRequest(response, "404 Error");
       break;
   }
+}
 
 var converter =  function(input){
   console.log("converter:resolved");
@@ -193,3 +189,4 @@ function finishRequest(response, message){
 
 var server = http.createServer(onRequest);
 server.listen(8082);
+console.log(">>SERVER RUNNING");
