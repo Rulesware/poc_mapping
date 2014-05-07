@@ -12,7 +12,7 @@ function onRequest(request, response) {
 
 	var config = {
 		xsltPath: 'discount.xsl',
-		sourcePath: 'order.xml',
+		source: 'order.xml',
 		result: 'result.xml',
 		params: {
 			adiscount: '2014/08/02'
@@ -21,8 +21,6 @@ function onRequest(request, response) {
 			indent: 'yes'
 		}
 	};
-
-
 
   switch (request.url){
    
@@ -36,15 +34,20 @@ function onRequest(request, response) {
       getJsonFromFile().then(function(res){
             console.log("getJsonFromFile:resolved")
             var converterAsync = q(converter(res));
+            //finishRequest(  response ,JSON.stringify(res) );
             converterAsync.then(function(result){
-                //console.log("converterAsync: "+result);
-                finishRequest(response,JSON.stringify(result, null, 4));
+
+                var builder = new xml2js.Builder();
+                console.log("builder excecuted!")
+                var xml = builder.buildObject( result );
+                console.log("builderObject excecuted!")
+                finishRequest(  response ,xml );
             })
       });
     break;
 
 
-case ("/map2"):
+    case ("/map2"):
       getJsonFromFile(function(res){
         
       });
@@ -101,7 +104,7 @@ var converter =  function(res){
             temp.id = "container-"+new Date().getTime()+"-"+(Math.random()*10000);
             temp.processID = processID;
             temp.type = key;
-            temp.list = [];
+            temp.list = [{}];
             var tmp2 = {};
             for(var x = 0; x<length; x++)
             {
@@ -136,8 +139,8 @@ var converter =  function(res){
             temp = {};
           }
         }
-        console.log(documents);
-      return documents;
+        //console.log(documents);
+      return {"Meta":"", "element": documents};
   
 };
 
