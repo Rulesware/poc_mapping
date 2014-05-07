@@ -65,7 +65,7 @@ function onRequest(request, response) {
             temp.processID = processID;
             temp.type = key;
             temp.list = [];
-            var tmp2 = {};
+            var temp2 = {};
             for(var x = 0; x<length; x++)
             {
               var temporal = root[x].$;
