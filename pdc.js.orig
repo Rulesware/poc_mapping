@@ -5,13 +5,18 @@ var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
 <<<<<<< HEAD
-var q = require('q'); 
-=======
 var hash = require('hash-string');
 
 var _ = require('underscore');
 //var linq = require('node-linq').LINQ;
->>>>>>> b968234c9c22a7aa7ef98239e224312a55df3893
+=======
+<<<<<<< HEAD
+var q = require('q'); 
+=======
+var hash = require('hash-string');
+
+>>>>>>> ec432191bf6c26da4b7d621a48fc6a688213bf41
+>>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
 
 function onRequest(request, response) {
 
@@ -27,6 +32,8 @@ function onRequest(request, response) {
 		}
 	};
 
+
+
   switch (request.url){
    
     case ("/"):
@@ -34,8 +41,12 @@ function onRequest(request, response) {
         finishRequest(response,JSON.stringify(res, null, 4));
       });
     break;
+
     case ("/map"):
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
       getJsonFromFile().then(function(res){
             console.log("getJsonFromFile:resolved")
             var converterAsync = q(converter(res));
@@ -43,7 +54,15 @@ function onRequest(request, response) {
                 console.log("converterAsync: "+result);
                 finishRequest(response, "mapping done");
             })
+<<<<<<< HEAD
+      });
+    break;
+
+
+case ("/map2"):
 =======
+=======
+>>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
       getJsonFromFile(function(res){
         var processes = res.definitions.process;
         var diagrams = res.definitions.BPMNDiagram;
@@ -111,10 +130,15 @@ function onRequest(request, response) {
           }
         }
         finishRequest(response,JSON.stringify(documents, null, 4));
->>>>>>> b968234c9c22a7aa7ef98239e224312a55df3893
+<<<<<<< HEAD
+=======
+>>>>>>> ec432191bf6c26da4b7d621a48fc6a688213bf41
+>>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
       });
-
     break;
+
+
+
     case ("/xml"):
 		xslt4node.transform(config, function (err) {
 		    if (err) {
@@ -122,20 +146,20 @@ function onRequest(request, response) {
 		    }
 		    finishRequest(  response , "done" );
 		});
+
     break;
+
     default:
       finishRequest(response, "404 Error");
       break;
   }
-};
+}
 
 var converter =  function(input){
   console.log("converter:resolved");
  
   return "test";
 };
- 
-
 
 function nameProcessor(name) {
   var prefixMatch = new RegExp(/(?!xmlns)^.*:/);
@@ -186,4 +210,4 @@ function finishRequest(response, message){
 
 var server = http.createServer(onRequest);
 server.listen(8082);
-console.log("server started...");
+console.log(">>SERVER RUNNING");

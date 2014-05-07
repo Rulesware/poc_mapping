@@ -5,9 +5,8 @@ var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
 var hash = require('hash-string');
-
+var q= require("q");
 var _ = require('underscore');
-//var linq = require('node-linq').LINQ;
 
 function onRequest(request, response) {
 
@@ -38,8 +37,8 @@ function onRequest(request, response) {
             console.log("getJsonFromFile:resolved")
             var converterAsync = q(converter(res));
             converterAsync.then(function(result){
-                console.log("converterAsync: "+result);
-                finishRequest(response, "mapping done");
+                //console.log("converterAsync: "+result);
+                finishRequest(response,JSON.stringify(result, null, 4));
             })
       });
     break;
@@ -47,6 +46,31 @@ function onRequest(request, response) {
 
 case ("/map2"):
       getJsonFromFile(function(res){
+        
+      });
+    break;
+
+
+
+    case ("/xml"):
+		xslt4node.transform(config, function (err) {
+		    if (err) {
+		        console.log(err);
+		    }
+		    finishRequest(  response , "done" );
+		});
+
+    break;
+
+    default:
+      finishRequest(response, "404 Error");
+      break;
+  }
+}
+
+var converter =  function(res){
+  console.log("converter:resolved");
+
         var processes = res.definitions.process;
         var diagrams = res.definitions.BPMNDiagram;
         var pl = processes.length;
@@ -112,32 +136,9 @@ case ("/map2"):
             temp = {};
           }
         }
-        finishRequest(response,JSON.stringify(documents, null, 4));
-      });
-    break;
-
-
-
-    case ("/xml"):
-		xslt4node.transform(config, function (err) {
-		    if (err) {
-		        console.log(err);
-		    }
-		    finishRequest(  response , "done" );
-		});
-
-    break;
-
-    default:
-      finishRequest(response, "404 Error");
-      break;
-  }
-}
-
-var converter =  function(input){
-  console.log("converter:resolved");
- 
-  return "test";
+        console.log(documents);
+      return documents;
+  
 };
 
 function nameProcessor(name) {
@@ -146,7 +147,6 @@ function nameProcessor(name) {
 }
 
 var getMapping = function(callback){
-
       var parser = new xml2js.Parser();
       fs.readFile('process.bpmn', function(err, data) {
           parser.parseString(data, function (err, result) {
