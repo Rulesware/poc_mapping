@@ -4,25 +4,15 @@ var xml2js = require('xml2js');
 var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
-<<<<<<< HEAD
 var hash = require('hash-string');
-
+var q= require("q");
 var _ = require('underscore');
-//var linq = require('node-linq').LINQ;
-=======
-<<<<<<< HEAD
-var q = require('q'); 
-=======
-var hash = require('hash-string');
-
->>>>>>> ec432191bf6c26da4b7d621a48fc6a688213bf41
->>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
 
 function onRequest(request, response) {
 
 	var config = {
 		xsltPath: 'discount.xsl',
-		sourcePath: 'order.xml',
+		source: 'order.xml',
 		result: 'result.xml',
 		params: {
 			adiscount: '2014/08/02'
@@ -31,8 +21,6 @@ function onRequest(request, response) {
 			indent: 'yes'
 		}
 	};
-
-
 
   switch (request.url){
    
@@ -43,27 +31,53 @@ function onRequest(request, response) {
     break;
 
     case ("/map"):
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
       getJsonFromFile().then(function(res){
             console.log("getJsonFromFile:resolved")
             var converterAsync = q(converter(res));
+            //finishRequest(  response ,JSON.stringify(res) );
             converterAsync.then(function(result){
-                console.log("converterAsync: "+result);
-                finishRequest(response, "mapping done");
+
+                var builder = new xml2js.Builder();
+                console.log("builder excecuted!")
+                var xml = builder.buildObject( result );
+                console.log("builderObject excecuted!")
+                finishRequest(  response ,xml );
             })
+      });
+    break;
+
 <<<<<<< HEAD
+
+    case ("/map2"):
+      getJsonFromFile(function(res){
+        
       });
     break;
 
 
-case ("/map2"):
+
 =======
-=======
->>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
-      getJsonFromFile(function(res){
+>>>>>>> 0b99f39942bc9aaa0bb8c9a443d6b09628699202
+    case ("/xml"):
+		xslt4node.transform(config, function (err) {
+		    if (err) {
+		        console.log(err);
+		    }
+		    finishRequest(  response , "done" );
+		});
+
+    break;
+
+    default:
+      finishRequest(response, "404 Error");
+      break;
+  }
+}
+
+var converter =  function(res){
+  console.log("converter:resolved");
+
+<<<<<<< HEAD
         var processes = res.definitions.process;
         var diagrams = res.definitions.BPMNDiagram;
         var pl = processes.length;
@@ -94,7 +108,7 @@ case ("/map2"):
             temp.id = "container-"+new Date().getTime()+"-"+(Math.random()*10000);
             temp.processID = processID;
             temp.type = key;
-            temp.list = [];
+            temp.list = [{}];
             var tmp2 = {};
             for(var x = 0; x<length; x++)
             {
@@ -129,36 +143,76 @@ case ("/map2"):
             temp = {};
           }
         }
-        finishRequest(response,JSON.stringify(documents, null, 4));
-<<<<<<< HEAD
+        //console.log(documents);
+      return {"Meta":"", "element": documents};
 =======
->>>>>>> ec432191bf6c26da4b7d621a48fc6a688213bf41
->>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
-      });
-    break;
-
-
-
-    case ("/xml"):
-		xslt4node.transform(config, function (err) {
-		    if (err) {
-		        console.log(err);
-		    }
-		    finishRequest(  response , "done" );
-		});
-
-    break;
-
-    default:
-      finishRequest(response, "404 Error");
-      break;
-  }
-}
-
-var converter =  function(input){
-  console.log("converter:resolved");
- 
-  return "test";
+     var processes = res.definitions.process;
+     var diagrams = res.definitions.BPMNDiagram;
+     var pl = processes.length;
+     var documents = [];
+     for(var i=0; i<pl; i++)
+     {
+       //creating pdc processes
+       var mapping= {};
+       var processID = idGenerator();
+       mapping.id = processID;
+       mapping.processMeta = processes[i].$;
+       mapping.hash = hash.hashCode(new Date().toString());
+       mapping.bpmnDiagram = diagrams[i].$;
+       delete diagrams[i].$;
+       mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
+       delete diagrams[i].BPMNPlane[0].$;
+       documents.push(mapping);
+       mapping = {};
+     //creating pdc shapes
+     delete processes[i].$;
+     for(key in processes[i]) 
+     {
+       //general info
+       var length = processes[i][key].length;
+       var root = processes[i][key];
+       //creating container of key type
+       mapping.id = idGenerator();
+       mapping.processID = processID;
+       mapping.type = key;
+       mapping.list = [];
+       var shape = {};
+       for(var x = 0; x<length; x++)
+       {
+         shape = root[x];
+         shape.shapeMeta = root[x].$;
+         delete root[x].$;
+         for(key in diagrams[i].BPMNPlane[0])
+         {
+           var localRoot = diagrams[i].BPMNPlane[0][key];
+           var typesLenght = localRoot.length;
+           var z=0;
+           var flag = true;
+           for(z; z<typesLenght; z++)
+           {
+             if(localRoot[z].$)
+               if(localRoot[z].$.bpmnElement == shape.shapeMeta.id)
+                 { flag = false; break;}
+           }
+           if(flag)
+             continue;
+           shape.DiagramMeta = localRoot[z].$;
+           delete localRoot[z].$;
+           for(k in localRoot[z])
+             shape[k] = localRoot[z][k];
+           break;
+         }
+         mapping.list.push(shape);
+         shape = {};
+       }
+       documents.push(mapping);
+       mapping = {};
+     }
+   }
+   console.log(documents);
+   return documents;
+>>>>>>> 0b99f39942bc9aaa0bb8c9a443d6b09628699202
+  
 };
 
 function nameProcessor(name) {
@@ -167,7 +221,6 @@ function nameProcessor(name) {
 }
 
 var getMapping = function(callback){
-
       var parser = new xml2js.Parser();
       fs.readFile('process.bpmn', function(err, data) {
           parser.parseString(data, function (err, result) {
