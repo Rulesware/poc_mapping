@@ -4,7 +4,8 @@ var xml2js = require('xml2js');
 var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
-var linq = require('node-linq').LINQ;
+var _ = require('underscore');
+//var linq = require('node-linq').LINQ;
 
 function onRequest(request, response) {
 
@@ -31,8 +32,10 @@ function onRequest(request, response) {
     break;
     case ("/map"):
       getJsonFromFile(function(res){
-
-        var result = new linq(res).where(function(x){return x=="process"}).ToArray();
+        var a = _(res).chain().flatten().pluck('process') ;
+        console.log(a)
+        finishRequest(response, JSON.stringify(res) );
+        //var result = new linq(res).where(function(x){return x=="process"}).ToArray();
 
 
         
