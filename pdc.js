@@ -4,13 +4,10 @@ var xml2js = require('xml2js');
 var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
-<<<<<<< HEAD
 var hash = require('hash-string');
 
-=======
 var _ = require('underscore');
 //var linq = require('node-linq').LINQ;
->>>>>>> a7656c49746bd4324a314b0b09a4bcff1b4b7fb4
 
 function onRequest(request, response) {
 
@@ -37,7 +34,6 @@ function onRequest(request, response) {
     break;
     case ("/map"):
       getJsonFromFile(function(res){
-<<<<<<< HEAD
         var processes = res.definitions.process;
         var diagrams = res.definitions.BPMNDiagram;
         var pl = processes.length;
@@ -103,17 +99,7 @@ function onRequest(request, response) {
             temp = {};
           }
         }
-
         finishRequest(response,JSON.stringify(documents, null, 4));
-=======
-        var a = _(res).chain().flatten().pluck('process') ;
-        console.log(a)
-        finishRequest(response, JSON.stringify(res) );
-        //var result = new linq(res).where(function(x){return x=="process"}).ToArray();
-
-
-        
->>>>>>> a7656c49746bd4324a314b0b09a4bcff1b4b7fb4
       });
     break;
     case ("/xml"):
