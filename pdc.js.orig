@@ -5,11 +5,18 @@ var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
 <<<<<<< HEAD
-var enumerable = require('linq');
+var hash = require('hash-string');
+
+var _ = require('underscore');
+//var linq = require('node-linq').LINQ;
 =======
-var js2xmlparser = require("js2xmlparser");
-var fs = require('fs');
->>>>>>> 4206953b648dbaf84cdd2f50c1710fff911c92ac
+<<<<<<< HEAD
+var q = require('q'); 
+=======
+var hash = require('hash-string');
+
+>>>>>>> ec432191bf6c26da4b7d621a48fc6a688213bf41
+>>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
 
 function onRequest(request, response) {
 
@@ -25,112 +32,144 @@ function onRequest(request, response) {
 		}
 	};
 
+
+
   switch (request.url){
+   
     case ("/"):
       getJsonFromFile(function(res){
         finishRequest(response,JSON.stringify(res, null, 4));
       });
     break;
+
     case ("/map"):
-      getJsonFromFile(function(res){
-        enumerable.From(res).where(function(x){return x.task});
-
-
-        finishRequest(response,JSON.stringify(res, null, 4));
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
+      getJsonFromFile().then(function(res){
+            console.log("getJsonFromFile:resolved")
+            var converterAsync = q(converter(res));
+            converterAsync.then(function(result){
+                console.log("converterAsync: "+result);
+                finishRequest(response, "mapping done");
+            })
+<<<<<<< HEAD
       });
     break;
-    case ("/xml"):
+
+
+case ("/map2"):
+=======
+=======
+>>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
+      getJsonFromFile(function(res){
+        var processes = res.definitions.process;
+        var diagrams = res.definitions.BPMNDiagram;
+        var pl = processes.length;
+        var documents = [];
+        for(var i=0; i<pl; i++)
+        {
+          //creating pdc processes
+          var temp= {};
+          var processID = "process-"+new Date().getTime()+"-"+(Math.random()*10000);
+          temp.id = processID;
+          temp.processMeta = processes[i].$;
+          temp.hash = hash.hashCode(new Date().toString());
+          temp.bpmnDiagram = diagrams[i].$;
+          delete diagrams[i].$;
+          temp.bpmnPlane = diagrams[i].BPMNPlane[0].$;
+          delete diagrams[i].BPMNPlane[0].$;
+          documents.push(temp);
+          temp = {};
+
+          //creating pdc shapes
+          delete processes[i].$;
+          for(key in processes[i]) 
+          {
+            //general info
+            var length = processes[i][key].length;
+            var root = processes[i][key];
+            //creating container of key type
+            temp.id = "container-"+new Date().getTime()+"-"+(Math.random()*10000);
+            temp.processID = processID;
+            temp.type = key;
+            temp.list = [];
+            var tmp2 = {};
+            for(var x = 0; x<length; x++)
+            {
+              var temporal = root[x].$;
+              delete root[x].$;
+              temp2 = root[x];
+              temp2.shapeMeta = temporal;
+              for(key in diagrams[i].BPMNPlane[0])
+              {
+                var localRoot = diagrams[i].BPMNPlane[0][key];
+                var typesLenght = localRoot.length;
+                var z=0;
+                var flag = true;
+                for(z; z<typesLenght; z++)
+                {
+                  if(localRoot[z].$)
+                    if(localRoot[z].$.bpmnElement == temp2.shapeMeta.id)
+                      { flag = false; break;}
+                }
+                if(flag)
+                  continue;
+                temp2.DiagramMeta = localRoot[z].$;
+                delete localRoot[z].$;
+                for(k in localRoot[z])
+                  temp2[k] = localRoot[z][k];
+                break;
+              }
+              temp.list.push(temp2);
+              temp2 = {};
+            }
+            documents.push(temp);
+            temp = {};
+          }
+        }
+        finishRequest(response,JSON.stringify(documents, null, 4));
 <<<<<<< HEAD
+=======
+>>>>>>> ec432191bf6c26da4b7d621a48fc6a688213bf41
+>>>>>>> 85111a3de6850f3f894ad75c0617b2760d577d81
+      });
+    break;
+
+
+
+    case ("/xml"):
 		xslt4node.transform(config, function (err) {
 		    if (err) {
 		        console.log(err);
 		    }
-		    finishRequest(response , "done" );
+		    finishRequest(  response , "done" );
 		});
-=======
 
-      readJson(function(data){        
-
-        var builder = new xml2js.Builder();
-        var xml = builder.buildObject( JSON.parse(data) );
-        //finishRequest(  response ,  xml );
-        //finishRequest(  response ,  js2xmlparser("", JSON.parse(data) ) );
-        var config = {
-          xsltPath: 'discount.xsl',
-          source: xml,
-          result: 'result.xml',
-          props: {
-            indent: 'yes'
-          }
-        };
-        
-        xslt4node.transform(config, function (err) {
-            if (err) {
-                console.log(err);
-            }
-            getResult(function(res){
-              finishRequest(  response , builder.buildObject(res) );
-            });
-        });
-
-      });
-    
-
->>>>>>> 4206953b648dbaf84cdd2f50c1710fff911c92ac
     break;
+
     default:
       finishRequest(response, "404 Error");
       break;
   }
+}
 
+var converter =  function(input){
+  console.log("converter:resolved");
+ 
+  return "test";
 };
 
-<<<<<<< HEAD
 function nameProcessor(name) {
   var prefixMatch = new RegExp(/(?!xmlns)^.*:/);
   return  name.replace(prefixMatch, '');
 }
 
-var getJsonFromFile = function(callback){
-      if (cache.get("jsonResult")!=null){
-       callback(cache.get("jsonResult"))
-       console.log("element picked up from cache");
-      }
-      else{
-        var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
-
-        fs.readFile('process.bpmn', function(err, data) {
-          parser.parseString(data,
-            function (err, result) {
-            
-
-=======
 var getMapping = function(callback){
+
       var parser = new xml2js.Parser();
       fs.readFile('process.bpmn', function(err, data) {
-          parser.parseString(data, function (err, result) {
->>>>>>> 4206953b648dbaf84cdd2f50c1710fff911c92ac
-            var jsonFile = JSON.stringify(result);
-            var newResult = JSON.parse(jsonFile);
-            cache.put("jsonResult", newResult);
-            callback( newResult );
-          });
-<<<<<<< HEAD
-        });
-      }
-=======
-      });
-}
-
-var readJson = function(callback){
-  fs.readFile('jsonparsing.js', function(err, data) {
-      callback(data);
-    });
-}
-
-var getResult = function(callback){
-      var parser = new xml2js.Parser();
-      fs.readFile('result.xml', function(err, data) {
           parser.parseString(data, function (err, result) {
             var jsonFile = JSON.stringify(result);
             var newResult = JSON.parse(jsonFile);
@@ -138,7 +177,29 @@ var getResult = function(callback){
             callback( newResult );
           });
       });
->>>>>>> 4206953b648dbaf84cdd2f50c1710fff911c92ac
+    
+}
+
+var getJsonFromFile = function(){
+  var deferred = q.defer();
+      if (cache.get("jsonResult")!=null){
+       console.log("element picked up from cache");
+       deferred.resolve(cache.get("jsonResult"));
+      }
+      else{
+        var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
+
+        fs.readFile('process.bpmn', function(err, data) {
+          parser.parseString(data,
+            function (err, result) {
+            var jsonFile = JSON.stringify(result);
+            var newResult = JSON.parse(jsonFile);
+            cache.put("jsonResult", newResult);
+            deferred.resolve(newResult);
+          });
+        });
+      }
+  return deferred.promise;  
 }
 
 function finishRequest(response, message){
@@ -149,4 +210,4 @@ function finishRequest(response, message){
 
 var server = http.createServer(onRequest);
 server.listen(8082);
-console.log("Server listening...");
+console.log(">>SERVER RUNNING");

@@ -5,9 +5,8 @@ var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
 var hash = require('hash-string');
-
+var q= require("q");
 var _ = require('underscore');
-//var linq = require('node-linq').LINQ;
 
 function onRequest(request, response) {
 
@@ -32,8 +31,46 @@ function onRequest(request, response) {
         finishRequest(response,JSON.stringify(res, null, 4));
       });
     break;
+
     case ("/map"):
+      getJsonFromFile().then(function(res){
+            console.log("getJsonFromFile:resolved")
+            var converterAsync = q(converter(res));
+            converterAsync.then(function(result){
+                //console.log("converterAsync: "+result);
+                finishRequest(response,JSON.stringify(result, null, 4));
+            })
+      });
+    break;
+
+
+case ("/map2"):
       getJsonFromFile(function(res){
+        
+      });
+    break;
+
+
+
+    case ("/xml"):
+		xslt4node.transform(config, function (err) {
+		    if (err) {
+		        console.log(err);
+		    }
+		    finishRequest(  response , "done" );
+		});
+
+    break;
+
+    default:
+      finishRequest(response, "404 Error");
+      break;
+  }
+}
+
+var converter =  function(res){
+  console.log("converter:resolved");
+
         var processes = res.definitions.process;
         var diagrams = res.definitions.BPMNDiagram;
         var pl = processes.length;
@@ -99,24 +136,9 @@ function onRequest(request, response) {
             temp = {};
           }
         }
-        finishRequest(response,JSON.stringify(documents, null, 4));
-      });
-    break;
-    case ("/xml"):
-		xslt4node.transform(config, function (err) {
-		    if (err) {
-		        console.log(err);
-		    }
-		    finishRequest(  response , "done" );
-		});
-
-    break;
-
-    default:
-      finishRequest(response, "404 Error");
-      break;
-  }
-
+        console.log(documents);
+      return documents;
+  
 };
 
 function nameProcessor(name) {
@@ -125,7 +147,6 @@ function nameProcessor(name) {
 }
 
 var getMapping = function(callback){
-
       var parser = new xml2js.Parser();
       fs.readFile('process.bpmn', function(err, data) {
           parser.parseString(data, function (err, result) {
@@ -138,10 +159,11 @@ var getMapping = function(callback){
     
 }
 
-var getJsonFromFile = function(callback){
+var getJsonFromFile = function(){
+  var deferred = q.defer();
       if (cache.get("jsonResult")!=null){
-       callback(cache.get("jsonResult"))
        console.log("element picked up from cache");
+       deferred.resolve(cache.get("jsonResult"));
       }
       else{
         var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
@@ -149,15 +171,14 @@ var getJsonFromFile = function(callback){
         fs.readFile('process.bpmn', function(err, data) {
           parser.parseString(data,
             function (err, result) {
-            
-
             var jsonFile = JSON.stringify(result);
             var newResult = JSON.parse(jsonFile);
             cache.put("jsonResult", newResult);
-            callback( newResult );
+            deferred.resolve(newResult);
           });
         });
       }
+  return deferred.promise;  
 }
 
 function finishRequest(response, message){
@@ -168,4 +189,4 @@ function finishRequest(response, message){
 
 var server = http.createServer(onRequest);
 server.listen(8082);
-console.log("server started...");
+console.log(">>SERVER RUNNING");
