@@ -27,32 +27,32 @@ function onRequest(request, response) {
   switch (request.url){
    
     case ("/"):
-      getJsonFromFile().then(function(res){
+      getJsonFromFile(function(res){
         finishRequest(response,JSON.stringify(res, null, 4));
       });
     break;
 
     case ("/map"):
-        var builder = new xml2js.Builder();
-        console.log("builder excecuted!");
-        var xml = builder.buildObject( global );
-        //console.log("builderObject excecuted!")
-        finishRequest(  response , xml );
+      //our mapping model
+      getJsonFromFile(function(res){
+        finishRequest(response,JSON.stringify(converter(res), null, 4));
+      });
     break;
 
     case ("/xml"):
-		xslt4node.transform(config, function (err) {
-		    if (err) {
-		        console.log(err);
-		    }
-		    finishRequest(  response , "done" );
-		});
+		  //benjamin: obtener el proceso por ID de la base de datos. Y mostrar el xml resultante
+    break;
 
+    case ("/save"):
+      //storing data into mongo
+    break;
+
+    case ("/addShape");
+      //or something like this.
     break;
 
     default:
       finishRequest(response, "404 Error");
-      break;
   }
 }
 
@@ -144,26 +144,23 @@ var getMapping = function(callback){
     
 }
 
-var getJsonFromFile = function(){
-  var deferred = q.defer();
-      if (cache.get("jsonResult")!=null){
-       console.log("element picked up from cache");
-       deferred.resolve(cache.get("jsonResult"));
-      }
-      else{
-        var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
-
-        fs.readFile('process.bpmn', function(err, data) {
-          parser.parseString(data,
-            function (err, result) {
-            var jsonFile = JSON.stringify(result);
-            var newResult = JSON.parse(jsonFile);
-            cache.put("jsonResult", newResult);
-            deferred.resolve(newResult);
-          });
-        });
-      }
-  return deferred.promise;  
+var getJsonFromFile = function(callback){
+  if (cache.get("jsonResult")!=null){
+   console.log("element picked up from cache");
+   callback(cache.get("jsonResult"));
+  }
+  else{
+    var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
+    fs.readFile('process.bpmn', function(err, data) {
+      parser.parseString(data,
+        function (err, result) {
+        var jsonFile = JSON.stringify(result);
+        var newResult = JSON.parse(jsonFile);
+        cache.put("jsonResult", newResult);
+        callback(newResult);
+      });
+    });
+  }
 }
 
 function finishRequest(response, message){
