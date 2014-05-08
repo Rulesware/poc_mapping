@@ -45,9 +45,32 @@ function onRequest(request, response) {
 
     case ("/save"):
       //storing data into mongo
+      //27017 mongoDB v2.6
+      console.log("in url");
+      mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
+
+        if(err) { console.log(err);finishRequest(response, "Error: look at node.js log please.");}
+        else
+        {
+          console.log("In else");
+          getJsonFromFile(function(res){
+            console.log("from file");
+            db.collection("poc_mapping").insert(res.element, function(err, result){
+              if(err) {console.log(err);finishRequest(response, "Error: please look at the log.");}
+              else 
+              {
+                console.log("push to the database done!.");
+                finishRequest(response, "process inserted from cache to mongo db");
+                db.close();
+              }
+            })
+
+          });
+        }
+      });
     break;
 
-    case ("/addShape");
+    case ("/addShape"):
       //or something like this.
     break;
 
