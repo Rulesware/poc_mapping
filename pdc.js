@@ -7,7 +7,9 @@ var xslt4node = require('xslt4node');
 var hash = require('hash-string');
 var q= require("q");
 var _ = require('underscore');
+var mongo = require('mongodb');
 
+var global = "";
 function onRequest(request, response) {
 
 	var config = {
@@ -22,40 +24,21 @@ function onRequest(request, response) {
 		}
 	};
 
-
-
   switch (request.url){
    
     case ("/"):
-      getJsonFromFile(function(res){
+      getJsonFromFile().then(function(res){
         finishRequest(response,JSON.stringify(res, null, 4));
       });
     break;
 
     case ("/map"):
-      getJsonFromFile().then(function(res){
-            console.log("getJsonFromFile:resolved")
-            var converterAsync = q(converter(res));
-            //finishRequest(  response ,JSON.stringify(res) );
-            converterAsync.then(function(result){
-
-                var builder = new xml2js.Builder();
-                console.log("builder excecuted!")
-                var xml = builder.buildObject( result );
-                console.log("builderObject excecuted!")
-                finishRequest(  response ,xml );
-            })
-      });
+        var builder = new xml2js.Builder();
+        console.log("builder excecuted!");
+        var xml = builder.buildObject( global );
+        //console.log("builderObject excecuted!")
+        finishRequest(  response , xml );
     break;
-
-
-    case ("/map2"):
-      getJsonFromFile(function(res){
-        
-      });
-    break;
-
-
 
     case ("/xml"):
 		xslt4node.transform(config, function (err) {
@@ -74,74 +57,73 @@ function onRequest(request, response) {
 }
 
 var converter =  function(res){
-  console.log("converter:resolved");
+  var processes = res.definitions.process;
+  var diagrams = res.definitions.BPMNDiagram;
+  var pl = processes.length;
+  var documents = [];
+  for(var i=0; i<pl; i++)
+  {
+    //creating pdc processes
+    var mapping= {};
 
-     var processes = res.definitions.process;
-     var diagrams = res.definitions.BPMNDiagram;
-     var pl = processes.length;
-     var documents = [];
-     for(var i=0; i<pl; i++)
-     {
-       //creating pdc processes
-       var mapping= {};
-       var processID = idGenerator();
-       mapping.id = processID;
-       mapping.processMeta = processes[i].$;
-       mapping.hash = hash.hashCode(new Date().toString());
-       mapping.bpmnDiagram = diagrams[i].$;
-       delete diagrams[i].$;
-       mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
-       delete diagrams[i].BPMNPlane[0].$;
-       documents.push(mapping);
-       mapping = {};
-     //creating pdc shapes
-     delete processes[i].$;
-     for(key in processes[i]) 
-     {
-       //general info
-       var length = processes[i][key].length;
-       var root = processes[i][key];
-       //creating container of key type
-       mapping.id = idGenerator();
-       mapping.processID = processID;
-       mapping.type = key;
-       mapping.list = [];
-       var shape = {};
-       for(var x = 0; x<length; x++)
-       {
-         shape = root[x];
-         shape.shapeMeta = root[x].$;
-         delete root[x].$;
-         for(key in diagrams[i].BPMNPlane[0])
-         {
-           var localRoot = diagrams[i].BPMNPlane[0][key];
-           var typesLenght = localRoot.length;
-           var z=0;
-           var flag = true;
-           for(z; z<typesLenght; z++)
-           {
-             if(localRoot[z].$)
-               if(localRoot[z].$.bpmnElement == shape.shapeMeta.id)
-                 { flag = false; break;}
-           }
-           if(flag)
-             continue;
-           shape.DiagramMeta = localRoot[z].$;
-           delete localRoot[z].$;
-           for(k in localRoot[z])
-             shape[k] = localRoot[z][k];
-           break;
-         }
-         mapping.list.push(shape);
-         shape = {};
-       }
-       documents.push(mapping);
-       mapping = {};
-     }
-   }
-   console.log(documents);
-   return {"Meta":"", "element": documents};
-  
+    var processID = new mongo.ObjectID();
+
+    mapping.id = processID;
+    mapping.processMeta = processes[i].$;
+    mapping.hash = hash.hashCode(new Date().toString());
+    mapping.bpmnDiagram = diagrams[i].$;
+    delete diagrams[i].$;
+    mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
+    delete diagrams[i].BPMNPlane[0].$;
+    documents.push(mapping);
+    mapping = {};
+    //creating pdc shapes
+    delete processes[i].$;
+    for(key in processes[i]) 
+    {
+      //general info
+      var length = processes[i][key].length;
+      var root = processes[i][key];
+      //creating container of key type
+
+      mapping.id = new mongo.ObjectID();
+      mapping.processID = processID;
+      mapping.type = key;
+      mapping.list = [];
+      var shape = {};
+      for(var x = 0; x<length; x++)
+      {
+        shape = root[x];
+        shape.shapeMeta = root[x].$;
+        delete root[x].$;
+        for(key in diagrams[i].BPMNPlane[0])
+        {
+          var localRoot = diagrams[i].BPMNPlane[0][key];
+          var typesLenght = localRoot.length;
+          var z=0;
+          var flag = true;
+          for(z; z<typesLenght; z++)
+          {
+            if(localRoot[z].$)
+              if(localRoot[z].$.bpmnElement == shape.shapeMeta.id)
+                { flag = false; break;}
+          }
+          if(flag)
+            continue;
+          shape.DiagramMeta = localRoot[z].$;
+          delete localRoot[z].$;
+          for(k in localRoot[z])
+            shape[k] = localRoot[z][k];
+          break;
+        }
+        mapping.list.push(shape);
+        shape = {};
+      }
+      documents.push(mapping);
+      mapping = {};
+    }
+  }
+  return {"Meta":"", "element": documents};  
 };
 
 function nameProcessor(name) {
