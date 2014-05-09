@@ -33,10 +33,17 @@ function onRequest(request, response) {
       });
     break;
 
+
     case ("/map"):
       //our mapping model
       getJsonFromFile(function(res){
         finishRequest(response,JSON.stringify(converter(res), null, 4));
+      });
+    break;
+
+    case("/model"):
+    getJsonFromFile(function(res){
+        finishRequest(response,JSON.stringify(mapToModel(res), null, 4));
       });
     break;
 
@@ -128,6 +135,56 @@ function getProcess(id, db, append, callback)
     return append;
   else
     callback(append);
+}
+
+var mapToModel = function(res){
+  var processes = res.definitions.process;
+  var diagrams = res.definitions.BPMNDiagram; 
+  var documents = [];
+  //console.log(JSON.stringify(diagrams,null,4));
+  for(var prop in processes) {
+    if(processes.hasOwnProperty(prop)){
+      var propertyNames = Object.getOwnPropertyNames(processes[prop]);
+      for(var property in processes[prop]){
+        var mapping ={};
+        if(property==="$"){
+          //do something with the process
+        }else{
+        //shapes
+          mapping.id = new mongo.ObjectID();
+          mapping.hash = hash.hashCode(new Date().toString());
+          mapping.type = property;
+          mapping.value = processes[prop][property];
+          var bpmnItem = find(processes[prop][property], function(x) {return x.$.id;});
+          var bpmnId = bpmnItem.$.id;
+          if(bpmnId!=undefined){
+            
+          var returnVal =  find(diagrams,function(x){ 
+               if(x.bpmnElement===bpmnId){
+                mapping.diagramMeta = x;
+                return x;
+               }
+            });
+            console.log("return:"+ returnVal);
+            console.log("mapping"+mapping.diagramMeta);
+          }
+
+          documents.push(mapping);
+        }
+      }
+    }
+  }
+  return documents;
+}
+
+function find(items,f) {
+    for(var key in items) { 
+        var elem = items[key]; 
+        if (f(elem)) { return elem;}
+        if(typeof elem === "object") { 
+            find(elem,f); // call recursively
+        }
+    }
 }
 
 
