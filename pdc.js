@@ -78,10 +78,8 @@ function onRequest(request, response) {
         if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
         else
         {
-          getProcess(mongo.ObjectID("536bd9b8711053a51c856314"), db.collection("poc_mapping"), [], function(result){
-            console.log(result);
-            finishRequest(response, result.toString());
-          });
+          var result = getProcess(response, mongo.ObjectID("536bd9b8711053a51c856314"), db.collection("poc_mapping"), []);
+          //finishRequest(response, result.toString());
         }
       });
 
@@ -90,21 +88,35 @@ function onRequest(request, response) {
     default:
       finishRequest(response, "404 Error");
   }
+
+
 }
 //parameter id. eg id = "31643623463243nn2"
 //paramater db. eg db = 'db.collection("poc_mapping")'
 
+function printResult(response, result){
+  finishRequest(response, result.toString());
+}
+
+
 var cuenta = 0;
-function getProcess(id, db, append, callback)
+function getProcess(id, db, append)
+{
+
+  console.log(options);
+  encapsulating(id, db, append, function(append){
+
+  });
+}
+
+var encapsulating = function(id, db, append, callback)
 {
   var options = {
     $or:[{"id": id }, 
     {"processID": id }]
   }
 
-  console.log(options);
-
-  db.find(options).toArray(function(err, result){
+  mongoFind(options, db, function(result){
     var length = result.length;
     for(var i=0; i<length; i++) {
 
@@ -116,18 +128,23 @@ function getProcess(id, db, append, callback)
         for(var j=0; j < len ; j++){
           var processId = result[i].list[j].shapeMeta.calledElement;
           
-          db.find({"processMeta.id":processId}).toArray(function(err, result){
-            getProcess(result[0].id, db , append, null);
+          mongoFind({"processMeta.id":processId}, db, function(res){
+            //callback, recursive process.
+            getProcess(res[0].id, db, append);
+            //getProcess(res[0].id, db , append);
           });
         }
       }
     }
-  });
-  
-  if(callback == null)
-    return append;
-  else
     callback(append);
+  });
+}
+
+var mongoFind = function(options, db, callback)
+{
+  db.find(options).toArray(function(err, result){
+    callback(result);
+  });
 }
 
 
