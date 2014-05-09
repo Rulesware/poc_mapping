@@ -9,7 +9,8 @@ var q= require("q");
 var _ = require('underscore');
 var mongo = require('mongodb');
 
-var global = "";
+var global = [];
+
 function onRequest(request, response) {
 
 	var config = {
@@ -55,7 +56,7 @@ function onRequest(request, response) {
           console.log("In else");
           getJsonFromFile(function(res){
             console.log("from file");
-            db.collection("poc_mapping").insert(res.element, function(err, result){
+            db.collection("poc_mapping").insert(converter(res).element, function(err, result){
               if(err) {console.log(err);finishRequest(response, "Error: please look at the log.");}
               else 
               {
@@ -72,14 +73,67 @@ function onRequest(request, response) {
 
     case ("/addShape"):
       //or something like this.
+    
+      mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
+        if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
+        else
+        {
+          getProcess(mongo.ObjectID("536bd9b8711053a51c856314"), db.collection("poc_mapping"), [], function(result){
+            console.log(result);
+            finishRequest(response, result.toString());
+          });
+        }
+      });
+
     break;
 
     default:
       finishRequest(response, "404 Error");
   }
 }
+//parameter id. eg id = "31643623463243nn2"
+//paramater db. eg db = 'db.collection("poc_mapping")'
+
+var cuenta = 0;
+function getProcess(id, db, append, callback)
+{
+  var options = {
+    $or:[{"id": id }, 
+    {"processID": id }]
+  }
+
+  console.log(options);
+
+  db.find(options).toArray(function(err, result){
+    var length = result.length;
+    for(var i=0; i<length; i++) {
+
+      append.push(result[i]);
+      console.log(++cuenta);
+
+      if(result[i].type == "callActivity") {
+        var len = result[i].list.length;
+        for(var j=0; j < len ; j++){
+          var processId = result[i].list[j].shapeMeta.calledElement;
+          
+          db.find({"processMeta.id":processId}).toArray(function(err, result){
+            getProcess(result[0].id, db , append, null);
+          });
+        }
+      }
+    }
+  });
+  
+  if(callback == null)
+    return append;
+  else
+    callback(append);
+}
+
 
 var converter =  function(res){
+  if(cache.get("model") != null)
+    return cache.get("model");
   var processes = res.definitions.process;
   var diagrams = res.definitions.BPMNDiagram;
   var pl = processes.length;
@@ -109,7 +163,7 @@ var converter =  function(res){
       var root = processes[i][key];
       //creating container of key type
 
-      mapping.id = new mongo.ObjectID();
+      mapping._id = new mongo.ObjectID();
       mapping.processID = processID;
       mapping.type = key;
       mapping.list = [];
@@ -146,6 +200,7 @@ var converter =  function(res){
       mapping = {};
     }
   }
+  cache.put("model", {"Meta":"", "element": documents});
   return {"Meta":"", "element": documents};  
 };
 
