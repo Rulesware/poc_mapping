@@ -41,7 +41,15 @@ function onRequest(request, response) {
     break;
 
     case ("/xml"):
-		  //benjamin: obtener el proceso por ID de la base de datos. Y mostrar el xml resultante
+      gettingProcess([mongo.ObjectID("536bd9b8711053a51c856314")], function(res){
+        var builder = new xml2js.Builder();
+
+        var json = {"Meta":"", "element": res };
+        var j = JSON.parse(  JSON.stringify(json));
+
+        var xml = builder.buildObject( j );
+        finishRequest(response, xml);
+      });
     break;
 
     case ("/save"):
@@ -74,11 +82,7 @@ function onRequest(request, response) {
     case ("/addShape"):
       //or something like this.
     
-      mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
-        if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
-        else
-        {
-          getProcess([mongo.ObjectID("536bd9b8711053a51c856314")], db.collection("poc_mapping"), [], function(result){
+      gettingProcess([mongo.ObjectID("536bd9b8711053a51c856314")], function(result){
             var string = "[";
             for(var i=0;i<result.length; i++)
             {
@@ -87,17 +91,25 @@ function onRequest(request, response) {
             }
             finishRequest(response, string+"]");
           });
-        }
-      });
-
     break;
 
     default:
       finishRequest(response, "404 Error");
   }
-
-
 }
+
+var gettingProcess = function(ids, callback){
+  mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
+    if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
+    else
+    {
+      getProcess(ids, db.collection("poc_mapping"), [], callback);
+    }
+  });
+}
+
+
+
 //parameter id. eg id = "31643623463243nn2"
 //paramater db. eg db = 'db.collection("poc_mapping")'
 function getProcess(id, db, append, callback)
