@@ -135,7 +135,6 @@ function getProcess(response, id, db, append)
       console.log("Total: " + append.length);
       finishRequest(response, append.toString());
     }
-
   });
 }
 
