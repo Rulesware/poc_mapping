@@ -7,6 +7,9 @@ var xslt4node = require('xslt4node');
 var hash = require('hash-string');
 var q= require("q");
 var _ = require('underscore');
+var mongo = require('mongodb');
+
+var global = [];
 
 function onRequest(request, response) {
 
@@ -22,8 +25,6 @@ function onRequest(request, response) {
 		}
 	};
 
-
-
   switch (request.url){
    
     case ("/"):
@@ -33,105 +34,195 @@ function onRequest(request, response) {
     break;
 
     case ("/map"):
-      getJsonFromFile().then(function(res){
-            console.log("getJsonFromFile:resolved")
-            var converterAsync = q(converter(res));
-            converterAsync.then(function(result){
-
-                var builder = new xml2js.Builder();
-                console.log("builder excecuted!")
-                var xml = builder.buildObject( result );
-                console.log("builderObject excecuted!")
-                finishRequest(  response ,xml );
-            })
+      //our mapping model
+      getJsonFromFile(function(res){
+        finishRequest(response,JSON.stringify(converter(res), null, 4));
       });
     break;
 
     case ("/xml"):
-		xslt4node.transform(config, function (err) {
-		    if (err) {
-		        console.log(err);
-		    }
-		    finishRequest(  response , "done" );
-		});
+		  //benjamin: obtener el proceso por ID de la base de datos. Y mostrar el xml resultante
+    break;
+
+    case ("/save"):
+      //storing data into mongo
+      //27017 mongoDB v2.6
+      console.log("in url");
+      mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
+
+        if(err) { console.log(err);finishRequest(response, "Error: look at node.js log please.");}
+        else
+        {
+          console.log("In else");
+          getJsonFromFile(function(res){
+            console.log("from file");
+            db.collection("poc_mapping").insert(converter(res).element, function(err, result){
+              if(err) {console.log(err);finishRequest(response, "Error: please look at the log.");}
+              else 
+              {
+                console.log("push to the database done!.");
+                finishRequest(response, "process inserted from cache to mongo db");
+                db.close();
+              }
+            })
+
+          });
+        }
+      });
+    break;
+
+    case ("/addShape"):
+      //or something like this.
+    
+      mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
+        if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
+        else
+        {
+          var result = getProcess( response, [mongo.ObjectID("536bd9b8711053a51c856314")], 
+            db.collection("poc_mapping"), []);
+          //finishRequest(response, result.toString());
+        }
+      });
 
     break;
 
     default:
       finishRequest(response, "404 Error");
-      break;
   }
+
+
+}
+//parameter id. eg id = "31643623463243nn2"
+//paramater db. eg db = 'db.collection("poc_mapping")'
+
+function printResult(response, result){
+  finishRequest(response, result.toString());
+}
+
+
+function getProcess(response, id, db, append)
+{
+  var or = [];
+  var ids = [];
+  id.forEach(function(entry) {
+    or.push( {"id" : entry}, {"processID" : entry}, {"processMeta.id":entry} );
+  });
+
+  var options = {
+    $or: or
+  }
+
+  mongoFind(options, db, function(result){
+    console.log("Obtained: " + result.length);
+    var length = result.length;   
+
+    for(var i=0; i<length; i++) {
+
+      append.push(result[i]);
+
+      if(result[i].type == "callActivity") {
+        var len = result[i].list.length;
+        for(var j=0; j < len ; j++){
+          var processId = result[i].list[j].shapeMeta.calledElement;
+          ids.push( processId );
+        }
+      }      
+    }
+
+    if (ids.length > 0){
+      findByMeta(response, db, append, ids[0]);
+    } else{
+      console.log("Total: " + append.length);
+      finishRequest(response, append.toString());
+    }
+
+  });
+}
+
+var mongoFind = function(options, db, callback)
+{
+  db.find(options).toArray(function(err, result){
+    callback(result);
+  });
+}
+
+var findByMeta = function(response, db, append, processId){
+  mongoFind({"processMeta.id": processId}  , db, function(res){
+    getProcess(response, [res[0].id], db , append);
+  });
 }
 
 var converter =  function(res){
-  console.log("converter:resolved");
+  if(cache.get("model") != null)
+    return cache.get("model");
+  var processes = res.definitions.process;
+  var diagrams = res.definitions.BPMNDiagram;
+  var pl = processes.length;
+  var documents = [];
+  for(var i=0; i<pl; i++)
+  {
+    //creating pdc processes
+    var mapping= {};
 
-     var processes = res.definitions.process;
-     var diagrams = res.definitions.BPMNDiagram;
-     var pl = processes.length;
-     var documents = [];
-     for(var i=0; i<pl; i++)
-     {
-       //creating pdc processes
-       var mapping= {};
-       var processID = idGenerator();
-       mapping.id = processID;
-       mapping.processMeta = processes[i].$;
-       mapping.hash = hash.hashCode(new Date().toString());
-       mapping.bpmnDiagram = diagrams[i].$;
-       delete diagrams[i].$;
-       mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
-       delete diagrams[i].BPMNPlane[0].$;
-       documents.push(mapping);
-       mapping = {};
-     //creating pdc shapes
-     delete processes[i].$;
-     for(key in processes[i]) 
-     {
-       //general info
-       var length = processes[i][key].length;
-       var root = processes[i][key];
-       //creating container of key type
-       mapping.id = idGenerator();
-       mapping.processID = processID;
-       mapping.type = key;
-       mapping.list = [];
-       var shape = {};
-       for(var x = 0; x<length; x++)
-       {
-         shape = root[x];
-         shape.shapeMeta = root[x].$;
-         delete root[x].$;
-         for(key in diagrams[i].BPMNPlane[0])
-         {
-           var localRoot = diagrams[i].BPMNPlane[0][key];
-           var typesLenght = localRoot.length;
-           var z=0;
-           var flag = true;
-           for(z; z<typesLenght; z++)
-           {
-             if(localRoot[z].$)
-               if(localRoot[z].$.bpmnElement == shape.shapeMeta.id)
-                 { flag = false; break;}
-           }
-           if(flag)
-             continue;
-           shape.DiagramMeta = localRoot[z].$;
-           delete localRoot[z].$;
-           for(k in localRoot[z])
-             shape[k] = localRoot[z][k];
-           break;
-         }
-         mapping.list.push(shape);
-         shape = {};
-       }
-       documents.push(mapping);
-       mapping = {};
-     }
-   }
-   console.log(documents);
-   return documents;
-  
+    var processID = new mongo.ObjectID();
+
+    mapping.id = processID;
+    mapping.processMeta = processes[i].$;
+    mapping.hash = hash.hashCode(new Date().toString());
+    mapping.bpmnDiagram = diagrams[i].$;
+    delete diagrams[i].$;
+    mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
+    delete diagrams[i].BPMNPlane[0].$;
+    documents.push(mapping);
+    mapping = {};
+    //creating pdc shapes
+    delete processes[i].$;
+    for(key in processes[i]) 
+    {
+      //general info
+      var length = processes[i][key].length;
+      var root = processes[i][key];
+      //creating container of key type
+
+      mapping._id = new mongo.ObjectID();
+      mapping.processID = processID;
+      mapping.type = key;
+      mapping.list = [];
+      var shape = {};
+      for(var x = 0; x<length; x++)
+      {
+        shape = root[x];
+        shape.shapeMeta = root[x].$;
+        delete root[x].$;
+        for(key in diagrams[i].BPMNPlane[0])
+        {
+          var localRoot = diagrams[i].BPMNPlane[0][key];
+          var typesLenght = localRoot.length;
+          var z=0;
+          var flag = true;
+          for(z; z<typesLenght; z++)
+          {
+            if(localRoot[z].$)
+              if(localRoot[z].$.bpmnElement == shape.shapeMeta.id)
+                { flag = false; break;}
+          }
+          if(flag)
+            continue;
+          shape.DiagramMeta = localRoot[z].$;
+          delete localRoot[z].$;
+          for(k in localRoot[z])
+            shape[k] = localRoot[z][k];
+          break;
+        }
+        mapping.list.push(shape);
+        shape = {};
+      }
+      documents.push(mapping);
+      mapping = {};
+    }
+  }
+  cache.put("model", {"Meta":"", "element": documents});
+  return {"Meta":"", "element": documents};  
 };
 
 function nameProcessor(name) {
@@ -152,26 +243,23 @@ var getMapping = function(callback){
     
 }
 
-var getJsonFromFile = function(){
-  var deferred = q.defer();
-      if (cache.get("jsonResult")!=null){
-       console.log("element picked up from cache");
-       deferred.resolve(cache.get("jsonResult"));
-      }
-      else{
-        var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
-
-        fs.readFile('process.bpmn', function(err, data) {
-          parser.parseString(data,
-            function (err, result) {
-            var jsonFile = JSON.stringify(result);
-            var newResult = JSON.parse(jsonFile);
-            cache.put("jsonResult", newResult);
-            deferred.resolve(newResult);
-          });
-        });
-      }
-  return deferred.promise;  
+var getJsonFromFile = function(callback){
+  if (cache.get("jsonResult")!=null){
+   console.log("element picked up from cache");
+   callback(cache.get("jsonResult"));
+  }
+  else{
+    var parser = new xml2js.Parser({tagNameProcessors: [nameProcessor],attrNameProcessors: [nameProcessor]});
+    fs.readFile('process.bpmn', function(err, data) {
+      parser.parseString(data,
+        function (err, result) {
+        var jsonFile = JSON.stringify(result);
+        var newResult = JSON.parse(jsonFile);
+        cache.put("jsonResult", newResult);
+        callback(newResult);
+      });
+    });
+  }
 }
 
 function finishRequest(response, message){
