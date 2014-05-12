@@ -138,45 +138,65 @@ function getProcess(id, db, append, callback)
     callback(append);
 }
 
+
 var mapToModel = function(res){
+  /*if(cache.get("model") != null){
+    console.log("returned from cache");
+    return cache.get("model");
+  }*/
+
   var processes = res.definitions.process;
   var diagrams = res.definitions.BPMNDiagram; 
   var documents = [];
   for(var prop in processes) {
     if(processes.hasOwnProperty(prop)){
       var propertyNames = Object.getOwnPropertyNames(processes[prop]);
+      var  processId = new mongo.ObjectID();
       for(var property in processes[prop]){
         var mapping ={};
         if(property==="$"){
-          //do something with the process
+          mapping.processId = processId;
+          mapping.processMeta =  processes[prop][property];
+          documents.push(mapping);
         }else{
         //shapes
-          mapping.id = new mongo.ObjectID();
+          mapping.shapeId = new mongo.ObjectID();
+          mapping.processId = processId;
           mapping.hash = hash.hashCode(new Date().toString());
           mapping.type = property;
           mapping.value = processes[prop][property];
-          var bpmnId;
-          findPromise(processes[prop][property], function(x) {return x.$.id;}).then(function(value){
-            bpmnId = value.$.id;
-            console.log(bpmnId);
-          });
-              //console.log("mapping"+mapping.diagramMeta);
-            
+          var bpmnItem = find(processes[prop][property], function(x) {return x;});
+          var bpmnId = bpmnItem.$.id;
+            if(bpmnId!=undefined){
+              var returnVal;
+              find(diagrams,function(x){
+                if( x.$ != undefined && x.$.bpmnElement != undefined ){
+                  if(x.$.bpmnElement===bpmnId){
+                    //console.log("element found: " + JSON.stringify(x,null,4));
+                    returnVal = x;
+                  }}});
+              if(returnVal!=null){
+                mapping.diagram = returnVal;
+              }
+              
           }
           documents.push(mapping);
         }
       }
     }
-     return documents;
+    //cache.put("model", {"Meta":"", "element": documents});
+    return {"Meta":"", "element": documents}; 
   }
- 
+}
 
-var findPromise = promise.promisify(find);
 
 function find(items,f) {
     for(var key in items) { 
         var elem = items[key]; 
-        if (f(elem)) { return elem;}
+        if (f(elem)) { 
+
+          return elem;
+        }
         if(typeof elem === "object") { 
             find(elem,f); // call recursively
         }
