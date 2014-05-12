@@ -24,7 +24,7 @@ function onRequest(request, response) {
 			indent: 'yes'
 		}
 	};
-
+  var sw = new stopwatch();
   switch (request.url){
    
     case ("/"):
@@ -37,15 +37,22 @@ function onRequest(request, response) {
     case ("/map"):
       //our mapping model
       getJsonFromFile(function(res){
-        finishRequest(response,JSON.stringify(converter(res), null, 4));
+        sw.Start();
+        var resp = converter(res);
+        console.log("time: "+sw.getDifference());
+
+        finishRequest(response,JSON.stringify(resp, null, 4));
       });
     break;
 
     case("/model"):
     
     getJsonFromFile(function(res){
-        finishRequest(response,JSON.stringify(mapToModel(res), null, 4));
-      });
+      sw.Start();
+      var resp = mapToModel(res);
+      console.log("time: "+sw.getDifference());
+      finishRequest(response,JSON.stringify(resp, null, 4));
+    });
     break;
 
     case ("/xml"):
@@ -225,6 +232,17 @@ var mapToModel = function(res){
   }
 }
 
+var stopwatch = function(){
+  var start;
+
+  this.Start =function(){
+      this.start = new Date().getTime();
+  }
+
+  this.getDifference= function(){
+    return new Date().getTime() - this.start;
+  }
+}
 
 function find(items,f) {
     for(var key in items) { 
