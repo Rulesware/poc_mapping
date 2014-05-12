@@ -5,7 +5,7 @@ var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
 var hash = require('hash-string');
-var q= require("q");
+var promise = require("bluebird");
 var _ = require('underscore');
 var mongo = require('mongodb');
 
@@ -42,6 +42,7 @@ function onRequest(request, response) {
     break;
 
     case("/model"):
+    
     getJsonFromFile(function(res){
         finishRequest(response,JSON.stringify(mapToModel(res), null, 4));
       });
@@ -141,7 +142,6 @@ var mapToModel = function(res){
   var processes = res.definitions.process;
   var diagrams = res.definitions.BPMNDiagram; 
   var documents = [];
-  //console.log(JSON.stringify(diagrams,null,4));
   for(var prop in processes) {
     if(processes.hasOwnProperty(prop)){
       var propertyNames = Object.getOwnPropertyNames(processes[prop]);
@@ -155,27 +155,23 @@ var mapToModel = function(res){
           mapping.hash = hash.hashCode(new Date().toString());
           mapping.type = property;
           mapping.value = processes[prop][property];
-          var bpmnItem = find(processes[prop][property], function(x) {return x.$.id;});
-          var bpmnId = bpmnItem.$.id;
-          if(bpmnId!=undefined){
+          var bpmnId;
+          findPromise(processes[prop][property], function(x) {return x.$.id;}).then(function(value){
+            bpmnId = value.$.id;
+            console.log(bpmnId);
+          });
+              //console.log("mapping"+mapping.diagramMeta);
             
-          var returnVal =  find(diagrams,function(x){ 
-               if(x.bpmnElement===bpmnId){
-                mapping.diagramMeta = x;
-                return x;
-               }
-            });
-            console.log("return:"+ returnVal);
-            console.log("mapping"+mapping.diagramMeta);
           }
-
           documents.push(mapping);
         }
       }
     }
+     return documents;
   }
-  return documents;
-}
+ 
+
+var findPromise = promise.promisify(find);
 
 function find(items,f) {
     for(var key in items) { 
