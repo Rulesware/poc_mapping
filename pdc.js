@@ -78,9 +78,15 @@ function onRequest(request, response) {
         if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
         else
         {
-          var result = getProcess( response, [mongo.ObjectID("536bd9b8711053a51c856314")], 
-            db.collection("poc_mapping"), []);
-          //finishRequest(response, result.toString());
+          getProcess([mongo.ObjectID("536bd9b8711053a51c856314")], db.collection("poc_mapping"), [], function(result){
+            var string = "[";
+            for(var i=0;i<result.length; i++)
+            {
+              string += JSON.stringify(result[i], null, 4);
+              string += ",\n"
+            }
+            finishRequest(response, string+"]");
+          });
         }
       });
 
@@ -94,32 +100,20 @@ function onRequest(request, response) {
 }
 //parameter id. eg id = "31643623463243nn2"
 //paramater db. eg db = 'db.collection("poc_mapping")'
-
-function printResult(response, result){
-  finishRequest(response, result.toString());
-}
-
-
-function getProcess(response, id, db, append)
+function getProcess(id, db, append, callback)
 {
   var or = [];
   var ids = [];
-  id.forEach(function(entry) {
-    or.push( {"id" : entry}, {"processID" : entry}, {"processMeta.id":entry} );
-  });
 
-  var options = {
-    $or: or
+  var idLength = id.length;
+  for(var p = 0; p<idLength; p++){
+    or.push({"id" : id[p]}, {"processID" : id[p]});
   }
 
-  mongoFind(options, db, function(result){
-    console.log("Obtained: " + result.length);
+  mongoFind({$or: or}, db, function(result){
     var length = result.length;   
-
     for(var i=0; i<length; i++) {
-
       append.push(result[i]);
-
       if(result[i].type == "callActivity") {
         var len = result[i].list.length;
         for(var j=0; j < len ; j++){
@@ -130,10 +124,11 @@ function getProcess(response, id, db, append)
     }
 
     if (ids.length > 0){
-      findByMeta(response, db, append, ids[0]);
+      findByMeta(ids, db, append, function(idsarray){
+        getProcess(idsarray, db, append, callback);
+      })
     } else{
-      console.log("Total: " + append.length);
-      finishRequest(response, append.toString());
+      callback(append);
     }
   });
 }
@@ -145,9 +140,18 @@ var mongoFind = function(options, db, callback)
   });
 }
 
-var findByMeta = function(response, db, append, processId){
-  mongoFind({"processMeta.id": processId}  , db, function(res){
-    getProcess(response, [res[0].id], db , append);
+var findByMeta = function(processesID, db, append, callback){
+  var idss = [];
+  for(var d = 0;d<processesID.length; d++){
+    idss.push({"processMeta.id": processesID[d]});
+  }
+
+  mongoFind({$or: idss}  , db, function(res){
+    var idArray = [];
+    for(var i =0; i<res.length; i++){
+      idArray.push(res[i].id);
+    }
+    callback(idArray);
   });
 }
 
