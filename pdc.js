@@ -226,13 +226,12 @@ var mapToModel = function(res){
     }
     cache.put("model", {"Meta":"", "element": documents});
     return {"Meta":"", "element": documents}; 
-}
+  }
 
 function find(items,f) {
     for(var key in items) { 
         var elem = items[key]; 
         if (f(elem)) { 
-
           return elem;
         }
         if(typeof elem === "object") { 
@@ -253,6 +252,7 @@ var converter =  function(res){
   {
     //creating pdc processes
     var mapping= {};
+
     var processID = new mongo.ObjectID();
 
     mapping.id = processID;
