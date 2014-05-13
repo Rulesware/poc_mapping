@@ -5,7 +5,7 @@ var reader = require ("buffered-reader");
 var cache = require('memory-cache');
 var xslt4node = require('xslt4node');
 var hash = require('hash-string');
-var q= require("q");
+var promise = require("bluebird");
 var _ = require('underscore');
 var mongo = require('mongodb');
 
@@ -24,7 +24,7 @@ function onRequest(request, response) {
 			indent: 'yes'
 		}
 	};
-
+  var sw = new stopwatch();
   switch (request.url){
    
     case ("/"):
@@ -33,37 +33,38 @@ function onRequest(request, response) {
       });
     break;
 
-    case ("/map"):
-<<<<<<< HEAD
-      getJsonFromFile().then(function(res){
-            console.log("getJsonFromFile:resolved")
-            var converterAsync = q(converter(res));
-            converterAsync.then(function(result){
 
-                var builder = new xml2js.Builder();
-                console.log("builder excecuted!")
-                var xml = builder.buildObject( result );
-                console.log("builderObject excecuted!")
-                finishRequest(  response ,xml );
-            })
-=======
+    case ("/map"):
       //our mapping model
       getJsonFromFile(function(res){
-        finishRequest(response,JSON.stringify(converter(res), null, 4));
->>>>>>> 1446fd2334719dc5c7b438c4c845bc9520213dd5
+        sw.Start();
+        var resp = converter(res);
+        console.log("time: "+sw.getDifference());
+
+        finishRequest(response,JSON.stringify(resp, null, 4));
       });
     break;
 
+    case("/model"):
+    
+    getJsonFromFile(function(res){
+      sw.Start();
+      var resp = mapToModel(res);
+      console.log("time: "+sw.getDifference());
+      finishRequest(response,JSON.stringify(resp, null, 4));
+    });
+    break;
+
     case ("/xml"):
-<<<<<<< HEAD
-		xslt4node.transform(config, function (err) {
-		    if (err) {
-		        console.log(err);
-		    }
-		    finishRequest(  response , "done" );
-		});
-=======
-		  //benjamin: obtener el proceso por ID de la base de datos. Y mostrar el xml resultante
+      gettingProcess([mongo.ObjectID("536bd9b8711053a51c856314")], function(res){
+        var builder = new xml2js.Builder();
+
+        var json = {"Meta":"", "element": res };
+        var j = JSON.parse(  JSON.stringify(json));
+
+        var xml = builder.buildObject( j );
+        finishRequest(response, xml);
+      });
     break;
 
     case ("/save"):
@@ -96,70 +97,66 @@ function onRequest(request, response) {
     case ("/addShape"):
       //or something like this.
     
-      mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
-        if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
-        else
-        {
-          var result = getProcess(response, mongo.ObjectID("536bd9b8711053a51c856314"), db.collection("poc_mapping"), []);
-          //finishRequest(response, result.toString());
-        }
-      });
->>>>>>> 1446fd2334719dc5c7b438c4c845bc9520213dd5
-
+      gettingProcess([mongo.ObjectID("536bd9b8711053a51c856314")], function(result){
+            var string = "[";
+            for(var i=0;i<result.length; i++)
+            {
+              string += JSON.stringify(result[i], null, 4);
+              string += ",\n"
+            }
+            finishRequest(response, string+"]");
+          });
     break;
 
     default:
       finishRequest(response, "404 Error");
   }
-
-
-}
-//parameter id. eg id = "31643623463243nn2"
-//paramater db. eg db = 'db.collection("poc_mapping")'
-
-function printResult(response, result){
-  finishRequest(response, result.toString());
 }
 
-
-var cuenta = 0;
-function getProcess(id, db, append)
-{
-
-  console.log(options);
-  encapsulating(id, db, append, function(append){
-
+var gettingProcess = function(ids, callback){
+  mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
+    if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
+    else
+    {
+      getProcess(ids, db.collection("poc_mapping"), [], callback);
+    }
   });
 }
 
-var encapsulating = function(id, db, append, callback)
+
+
+//parameter id. eg id = "31643623463243nn2"
+//paramater db. eg db = 'db.collection("poc_mapping")'
+function getProcess(id, db, append, callback)
 {
-  var options = {
-    $or:[{"id": id }, 
-    {"processID": id }]
+  var or = [];
+  var ids = [];
+
+  var idLength = id.length;
+  for(var p = 0; p<idLength; p++){
+    or.push({"id" : id[p]}, {"processID" : id[p]});
   }
 
-  mongoFind(options, db, function(result){
-    var length = result.length;
+  mongoFind({$or: or}, db, function(result){
+    var length = result.length;   
     for(var i=0; i<length; i++) {
-
       append.push(result[i]);
-      console.log(++cuenta);
-
       if(result[i].type == "callActivity") {
         var len = result[i].list.length;
         for(var j=0; j < len ; j++){
           var processId = result[i].list[j].shapeMeta.calledElement;
-          
-          mongoFind({"processMeta.id":processId}, db, function(res){
-            //callback, recursive process.
-            getProcess(res[0].id, db, append);
-            //getProcess(res[0].id, db , append);
-          });
+          ids.push( processId );
         }
-      }
+      }      
     }
-    callback(append);
+
+    if (ids.length > 0){
+      findByMeta(ids, db, append, function(idsarray){
+        getProcess(idsarray, db, append, callback);
+      })
+    } else{
+      callback(append);
+    }
   });
 }
 
@@ -170,78 +167,97 @@ var mongoFind = function(options, db, callback)
   });
 }
 
+var findByMeta = function(processesID, db, append, callback){
+  var idss = [];
+  for(var d = 0;d<processesID.length; d++){
+    idss.push({"processMeta.id": processesID[d]});
+  }
+
+  mongoFind({$or: idss}  , db, function(res){
+    var idArray = [];
+    for(var i =0; i<res.length; i++){
+      idArray.push(res[i].id);
+    }
+    callback(idArray);
+  });
+}
+
+var mapToModel = function(res){
+  if(cache.get("model") != null){
+    console.log("returned from cache");
+    return cache.get("model");
+  }
+
+  var processes = res.definitions.process;
+  var diagrams = res.definitions.BPMNDiagram; 
+  var documents = [];
+  for(var prop in processes) {
+    if(processes.hasOwnProperty(prop)){
+      var propertyNames = Object.getOwnPropertyNames(processes[prop]);
+      var  processId = new mongo.ObjectID();
+      for(var property in processes[prop]){
+        var mapping ={};
+        var diagramsShapes =[];
+        if(property==="$"){
+          mapping.processId = processId;
+          mapping.processMeta =  processes[prop][property];
+        }else{ //shapes
+          mapping.shapeId = new mongo.ObjectID();
+          mapping.processId = processId;
+          mapping.hash = hash.hashCode(new Date().toString());
+          mapping.type = property;
+          mapping.value = processes[prop][property];
+          mapping.diagram=[];
+          if(property!="sequenceFlow"){
+            for(var innerProperty in processes[prop][property]){
+              find(diagrams[prop]["BPMNPlane"][0]["BPMNShape"], function(x) {
+                if(x.$!=undefined && x.$.bpmnElement==processes[prop][property][innerProperty].$.id){
+                  mapping.diagram.push(x);
+                }
+              });
+            }
+          }else{
+              mapping.diagram=diagrams[prop]["BPMNPlane"][0]["BPMNEdge"];
+            }
+        }
+          documents.push(mapping);
+        }
+      }
+    }
+    cache.put("model", {"Meta":"", "element": documents});
+    return {"Meta":"", "element": documents}; 
+  }
+<<<<<<< HEAD
+=======
+}
+
+var stopwatch = function(){
+  var start;
+
+  this.Start =function(){
+      this.start = new Date().getTime();
+  }
+
+  this.getDifference= function(){
+    return new Date().getTime() - this.start;
+  }
+}
+>>>>>>> c3befbb0a10981f87bc9f6a47abb38ecbd0749b0
+
+function find(items,f) {
+    for(var key in items) { 
+        var elem = items[key]; 
+        if (f(elem)) { 
+          return elem;
+        }
+        if(typeof elem === "object") { 
+            find(elem,f); // call recursively
+        }
+    }
+}
+
 
 var converter =  function(res){
-<<<<<<< HEAD
-  console.log("converter:resolved");
-
-     var processes = res.definitions.process;
-     var diagrams = res.definitions.BPMNDiagram;
-     var pl = processes.length;
-     var documents = [];
-     for(var i=0; i<pl; i++)
-     {
-       //creating pdc processes
-       var mapping= {};
-       var processID = idGenerator();
-       mapping.id = processID;
-       mapping.processMeta = processes[i].$;
-       mapping.hash = hash.hashCode(new Date().toString());
-       mapping.bpmnDiagram = diagrams[i].$;
-       delete diagrams[i].$;
-       mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
-       delete diagrams[i].BPMNPlane[0].$;
-       documents.push(mapping);
-       mapping = {};
-     //creating pdc shapes
-     delete processes[i].$;
-     for(key in processes[i]) 
-     {
-       //general info
-       var length = processes[i][key].length;
-       var root = processes[i][key];
-       //creating container of key type
-       mapping.id = idGenerator();
-       mapping.processID = processID;
-       mapping.type = key;
-       mapping.list = [];
-       var shape = {};
-       for(var x = 0; x<length; x++)
-       {
-         shape = root[x];
-         shape.shapeMeta = root[x].$;
-         delete root[x].$;
-         for(key in diagrams[i].BPMNPlane[0])
-         {
-           var localRoot = diagrams[i].BPMNPlane[0][key];
-           var typesLenght = localRoot.length;
-           var z=0;
-           var flag = true;
-           for(z; z<typesLenght; z++)
-           {
-             if(localRoot[z].$)
-               if(localRoot[z].$.bpmnElement == shape.shapeMeta.id)
-                 { flag = false; break;}
-           }
-           if(flag)
-             continue;
-           shape.DiagramMeta = localRoot[z].$;
-           delete localRoot[z].$;
-           for(k in localRoot[z])
-             shape[k] = localRoot[z][k];
-           break;
-         }
-         mapping.list.push(shape);
-         shape = {};
-       }
-       documents.push(mapping);
-       mapping = {};
-     }
-   }
-   console.log(documents);
-   return documents;
-  
-=======
   if(cache.get("model") != null)
     return cache.get("model");
   var processes = res.definitions.process;
@@ -312,7 +328,6 @@ var converter =  function(res){
   }
   cache.put("model", {"Meta":"", "element": documents});
   return {"Meta":"", "element": documents};  
->>>>>>> 1446fd2334719dc5c7b438c4c845bc9520213dd5
 };
 
 function nameProcessor(name) {
