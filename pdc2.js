@@ -32,18 +32,10 @@ function onRequest(request, response) {
       });
     break;
 
-    case ("/map"):
-      //our mapping model
-      getJsonFromFile(function(res){
-        finishRequest(response,JSON.stringify(converter(res), null, 4));
-      });
-    break;
-
     case("/model"):
-    
-    getJsonFromFile(function(res){
-      finishRequest(response,JSON.stringify(mapToModel(res), null, 4));
-    });
+      getJsonFromFile(function(res){
+        finishRequest(response,JSON.stringify(mapToModel(res), null, 4));
+      });
     break;
 
     case ("/xml"):
@@ -90,10 +82,10 @@ function onRequest(request, response) {
 }
 
 var mapToModel = function(res){
-  /*if(cache.get("model") != null){
+  if(cache.get("model") != null){
     console.log("returned from cache");
     return cache.get("model");
-  }*/
+  }
 
   var processes = res.definitions.process;
   var diagrams = res.definitions.BPMNDiagram; 
@@ -134,7 +126,7 @@ var mapToModel = function(res){
         }
       }
     }
-    //cache.put("model", {"Meta":"", "element": documents});
+    cache.put("model", {"Meta":"", "element": documents});
     return {"Meta":"", "element": documents}; 
   }
 }
@@ -155,18 +147,6 @@ function find(items,f) {
 function nameProcessor(name) {
   var prefixMatch = new RegExp(/(?!xmlns)^.*:/);
   return  name.replace(prefixMatch, '');
-}
-
-var getMapping = function(callback){
-      var parser = new xml2js.Parser();
-      fs.readFile('process.bpmn', function(err, data) {
-          parser.parseString(data, function (err, result) {
-            var jsonFile = JSON.stringify(result);
-            var newResult = JSON.parse(jsonFile);
-            cache.put("mapping", newResult);
-            callback( newResult );
-          });
-      });
 }
 
 var getJsonFromFile = function(callback){

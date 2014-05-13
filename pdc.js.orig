@@ -106,6 +106,8 @@ function onRequest(request, response) {
             }
             finishRequest(response, string+"]");
           });
+       
+
     break;
 
     default:
@@ -127,6 +129,8 @@ var gettingProcess = function(ids, callback){
 
 //parameter id. eg id = "31643623463243nn2"
 //paramater db. eg db = 'db.collection("poc_mapping")'
+
+var cuenta = 0;
 function getProcess(id, db, append, callback)
 {
   var or = [];
@@ -141,6 +145,8 @@ function getProcess(id, db, append, callback)
     var length = result.length;   
     for(var i=0; i<length; i++) {
       append.push(result[i]);
+     
+
       if(result[i].type == "callActivity") {
         var len = result[i].list.length;
         for(var j=0; j < len ; j++){
@@ -228,14 +234,18 @@ var mapToModel = function(res){
     return {"Meta":"", "element": documents}; 
 <<<<<<< HEAD
 }
+
 =======
   }
->>>>>>> b6882bff0675e2f92cf592a7a246e09ef90518b8
 
+
+
+>>>>>>> 5ed7a57fc84ff310c891da275b90cc77d4c87d00
 function find(items,f) {
     for(var key in items) { 
         var elem = items[key]; 
         if (f(elem)) { 
+
           return elem;
         }
         if(typeof elem === "object") { 
@@ -256,7 +266,6 @@ var converter =  function(res){
   {
     //creating pdc processes
     var mapping= {};
-
     var processID = new mongo.ObjectID();
 
     mapping.id = processID;
@@ -266,13 +275,11 @@ var converter =  function(res){
     mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
     //deletes to ignore conditions in for
     delete diagrams[i].$;
-    mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
     delete diagrams[i].BPMNPlane[0].$;
     delete processes[i].$;
     documents.push(mapping);
     mapping = {};
     //creating pdc shapes
-    delete processes[i].$;
     for(key in processes[i]) 
     {
       //general info
