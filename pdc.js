@@ -140,10 +140,10 @@ function getProcess(id, db, append, callback)
 
 
 var mapToModel = function(res){
-  /*if(cache.get("model") != null){
+  if(cache.get("model") != null){
     console.log("returned from cache");
     return cache.get("model");
-  }*/
+  }
 
   var processes = res.definitions.process;
   var diagrams = res.definitions.BPMNDiagram; 
@@ -154,47 +154,41 @@ var mapToModel = function(res){
       var  processId = new mongo.ObjectID();
       for(var property in processes[prop]){
         var mapping ={};
+        var diagramsShapes =[];
         if(property==="$"){
           mapping.processId = processId;
           mapping.processMeta =  processes[prop][property];
-          documents.push(mapping);
-        }else{
-        //shapes
+        }else{ //shapes
           mapping.shapeId = new mongo.ObjectID();
           mapping.processId = processId;
           mapping.hash = hash.hashCode(new Date().toString());
           mapping.type = property;
           mapping.value = processes[prop][property];
-          var bpmnItem = find(processes[prop][property], function(x) {return x;});
-          var bpmnId = bpmnItem.$.id;
-            if(bpmnId!=undefined){
-              var returnVal;
-              find(diagrams,function(x){
-                if( x.$ != undefined && x.$.bpmnElement != undefined ){
-                  if(x.$.bpmnElement===bpmnId){
-                    //console.log("element found: " + JSON.stringify(x,null,4));
-                    returnVal = x;
-                  }}});
-              if(returnVal!=null){
-                mapping.diagram = returnVal;
-              }
-              
-          }
+          mapping.diagram=[];
+          if(property!="sequenceFlow"){
+            for(var innerProperty in processes[prop][property]){
+              find(diagrams[prop]["BPMNPlane"][0]["BPMNShape"], function(x) {
+                if(x.$!=undefined && x.$.bpmnElement==processes[prop][property][innerProperty].$.id){
+                  mapping.diagram.push(x);
+                }
+              });
+            }
+          }else{
+              mapping.diagram=diagrams[prop]["BPMNPlane"][0]["BPMNEdge"];
+            }
+        }
           documents.push(mapping);
         }
       }
     }
-    //cache.put("model", {"Meta":"", "element": documents});
+    cache.put("model", {"Meta":"", "element": documents});
     return {"Meta":"", "element": documents}; 
   }
-}
-
 
 function find(items,f) {
     for(var key in items) { 
         var elem = items[key]; 
         if (f(elem)) { 
-
           return elem;
         }
         if(typeof elem === "object") { 
