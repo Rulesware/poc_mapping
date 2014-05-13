@@ -40,7 +40,15 @@ function onRequest(request, response) {
     break;
 
     case ("/xml"):
-      //getting the BPMN2 format from DB
+      gettingProcess([mongo.ObjectID("53724aa42579366763512a60")], function(res){
+        var builder = new xml2js.Builder();
+
+        var json = {"Meta":"", "element": res };
+        var j = JSON.parse(  JSON.stringify(json));
+
+        var xml = builder.buildObject( j );
+        finishRequest(response, xml);
+      });
     break;
 
     case ("/save"):
@@ -55,7 +63,6 @@ function onRequest(request, response) {
           console.log("In else");
           getJsonFromFile(function(res){
             console.log("from file");
-            //db.collection("poc_mapping").insert(converter(res).element, function(err, result){
             db.collection("poc_mapping").insert(mapToModel(res).element, function(err, result){
               if(err) {console.log(err);finishRequest(response, "Error: please look at the log.");}
               else 
