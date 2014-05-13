@@ -24,7 +24,7 @@ function onRequest(request, response) {
 			indent: 'yes'
 		}
 	};
-
+  var sw = new stopwatch();
   switch (request.url){
    
     case ("/"):
@@ -37,19 +37,34 @@ function onRequest(request, response) {
     case ("/map"):
       //our mapping model
       getJsonFromFile(function(res){
-        finishRequest(response,JSON.stringify(converter(res), null, 4));
+        sw.Start();
+        var resp = converter(res);
+        console.log("time: "+sw.getDifference());
+
+        finishRequest(response,JSON.stringify(resp, null, 4));
       });
     break;
 
     case("/model"):
     
     getJsonFromFile(function(res){
-        finishRequest(response,JSON.stringify(mapToModel(res), null, 4));
-      });
+      sw.Start();
+      var resp = mapToModel(res);
+      console.log("time: "+sw.getDifference());
+      finishRequest(response,JSON.stringify(resp, null, 4));
+    });
     break;
 
     case ("/xml"):
-		  //benjamin: obtener el proceso por ID de la base de datos. Y mostrar el xml resultante
+      gettingProcess([mongo.ObjectID("536bd9b8711053a51c856314")], function(res){
+        var builder = new xml2js.Builder();
+
+        var json = {"Meta":"", "element": res };
+        var j = JSON.parse(  JSON.stringify(json));
+
+        var xml = builder.buildObject( j );
+        finishRequest(response, xml);
+      });
     break;
 
     case ("/save"):
@@ -82,16 +97,16 @@ function onRequest(request, response) {
     case ("/addShape"):
       //or something like this.
     
-      mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
-        if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
-        else
-        {
-          getProcess(mongo.ObjectID("536bd9b8711053a51c856314"), db.collection("poc_mapping"), [], function(result){
-            console.log(result);
-            finishRequest(response, result.toString());
+      gettingProcess([mongo.ObjectID("536bd9b8711053a51c856314")], function(result){
+            var string = "[";
+            for(var i=0;i<result.length; i++)
+            {
+              string += JSON.stringify(result[i], null, 4);
+              string += ",\n"
+            }
+            finishRequest(response, string+"]");
           });
-        }
-      });
+       
 
     break;
 
@@ -99,45 +114,79 @@ function onRequest(request, response) {
       finishRequest(response, "404 Error");
   }
 }
+
+var gettingProcess = function(ids, callback){
+  mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
+    if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
+    else
+    {
+      getProcess(ids, db.collection("poc_mapping"), [], callback);
+    }
+  });
+}
+
+
+
 //parameter id. eg id = "31643623463243nn2"
 //paramater db. eg db = 'db.collection("poc_mapping")'
 
 var cuenta = 0;
 function getProcess(id, db, append, callback)
 {
-  var options = {
-    $or:[{"id": id }, 
-    {"processID": id }]
+  var or = [];
+  var ids = [];
+
+  var idLength = id.length;
+  for(var p = 0; p<idLength; p++){
+    or.push({"id" : id[p]}, {"processID" : id[p]});
   }
 
-  console.log(options);
-
-  db.find(options).toArray(function(err, result){
-    var length = result.length;
+  mongoFind({$or: or}, db, function(result){
+    var length = result.length;   
     for(var i=0; i<length; i++) {
-
       append.push(result[i]);
-      console.log(++cuenta);
+     
 
       if(result[i].type == "callActivity") {
         var len = result[i].list.length;
         for(var j=0; j < len ; j++){
           var processId = result[i].list[j].shapeMeta.calledElement;
-          
-          db.find({"processMeta.id":processId}).toArray(function(err, result){
-            getProcess(result[0].id, db , append, null);
-          });
+          ids.push( processId );
         }
-      }
+      }      
+    }
+
+    if (ids.length > 0){
+      findByMeta(ids, db, append, function(idsarray){
+        getProcess(idsarray, db, append, callback);
+      })
+    } else{
+      callback(append);
     }
   });
-  
-  if(callback == null)
-    return append;
-  else
-    callback(append);
 }
 
+var mongoFind = function(options, db, callback)
+{
+  db.find(options).toArray(function(err, result){
+    callback(result);
+  });
+}
+
+var findByMeta = function(processesID, db, append, callback){
+  var idss = [];
+  for(var d = 0;d<processesID.length; d++){
+    idss.push({"processMeta.id": processesID[d]});
+  }
+
+  mongoFind({$or: idss}  , db, function(res){
+    var idArray = [];
+    for(var i =0; i<res.length; i++){
+      idArray.push(res[i].id);
+    }
+    callback(idArray);
+  });
+}
 
 var mapToModel = function(res){
   if(cache.get("model") != null){
@@ -185,10 +234,13 @@ var mapToModel = function(res){
     return {"Meta":"", "element": documents}; 
   }
 
+
+
 function find(items,f) {
     for(var key in items) { 
         var elem = items[key]; 
         if (f(elem)) { 
+
           return elem;
         }
         if(typeof elem === "object") { 
