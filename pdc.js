@@ -253,59 +253,56 @@ var converter =  function(res){
   {
     //creating pdc processes
     var mapping= {};
-
     var processID = new mongo.ObjectID();
 
     mapping.id = processID;
     mapping.processMeta = processes[i].$;
     mapping.hash = hash.hashCode(new Date().toString());
     mapping.bpmnDiagram = diagrams[i].$;
-    delete diagrams[i].$;
     mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
+    //deletes to ignore conditions in for
+    delete diagrams[i].$;
     delete diagrams[i].BPMNPlane[0].$;
+    delete processes[i].$;
     documents.push(mapping);
     mapping = {};
     //creating pdc shapes
-    delete processes[i].$;
     for(key in processes[i]) 
     {
       //general info
       var length = processes[i][key].length;
       var root = processes[i][key];
       //creating container of key type
-
-      mapping._id = new mongo.ObjectID();
+      mapping.id = new mongo.ObjectID();
       mapping.processID = processID;
       mapping.type = key;
       mapping.list = [];
+      mapping.diagram = [];
       var shape = {};
+      var diag = {}
       for(var x = 0; x<length; x++)
       {
         shape = root[x];
-        shape.shapeMeta = root[x].$;
-        delete root[x].$;
-        for(key in diagrams[i].BPMNPlane[0])
-        {
-          var localRoot = diagrams[i].BPMNPlane[0][key];
-          var typesLenght = localRoot.length;
+        if(key == "sequenceFlow") 
+          diag = diagrams[i].BPMNPlane[0]["BPMNEdge"];
+        else{
+          var typesLenght = diagrams[i].BPMNPlane[0]["BPMNShape"].length;
           var z=0;
           var flag = true;
           for(z; z<typesLenght; z++)
           {
-            if(localRoot[z].$)
-              if(localRoot[z].$.bpmnElement == shape.shapeMeta.id)
+            if(diagrams[i].BPMNPlane[0]["BPMNShape"][z].$)
+              if(diagrams[i].BPMNPlane[0]["BPMNShape"][z].$.bpmnElement == shape.$.id)
                 { flag = false; break;}
           }
           if(flag)
             continue;
-          shape.DiagramMeta = localRoot[z].$;
-          delete localRoot[z].$;
-          for(k in localRoot[z])
-            shape[k] = localRoot[z][k];
+          diag = diagrams[i].BPMNPlane[0]["BPMNShape"][z];
           break;
         }
         mapping.list.push(shape);
-        shape = {};
+        mapping.diagram.push(diag);
+        shape = diag = {};
       }
       documents.push(mapping);
       mapping = {};
