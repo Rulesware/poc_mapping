@@ -32,10 +32,13 @@ function onRequest(request, response) {
       });
     break;
 
+    
+
     case("/model"):
-      getJsonFromFile(function(res){
-        finishRequest(response,JSON.stringify(mapToModel(res), null, 4));
-      });
+    
+    getJsonFromFile(function(res){
+      finishRequest(response,JSON.stringify(mapToModel(res), null, 4));
+    });
     break;
 
     case ("/xml"):
@@ -72,13 +75,89 @@ function onRequest(request, response) {
 
     case ("/addShape"):
       //or something like this.
-    
-      //recursive function to read to the db.
+      gettingProcess([mongo.ObjectID("536bd9b8711053a51c856314")], function(result){
+            var string = "[";
+            for(var i=0;i<result.length; i++)
+            {
+              string += JSON.stringify(result[i], null, 4);
+              string += ",\n"
+            }
+            finishRequest(response, string+"]");
+          });
     break;
 
     default:
       finishRequest(response, "404 Error");
   }
+}
+
+var gettingProcess = function(ids, callback){
+  mongo.MongoClient.connect("mongodb://192.168.212.139:27017/poc_mapping", function(err, db) {
+    if(err) {console.log(err); finishRequest(response, "Error: see nodejs log.")}
+    else
+    {
+      getProcess(ids, db.collection("poc_mapping"), [], callback);
+    }
+  });
+}
+
+
+
+//parameter id. eg id = "31643623463243nn2"
+//paramater db. eg db = 'db.collection("poc_mapping")'
+function getProcess(id, db, append, callback)
+{
+  var or = [];
+  var ids = [];
+
+  var idLength = id.length;
+  for(var p = 0; p<idLength; p++){
+    or.push({"processId" : id[p]});
+  }
+
+  mongoFind({$or: or}, db, function(result){
+    var length = result.length;   
+    for(var i=0; i<length; i++) {
+      append.push(result[i]);
+      if(result[i].type == "callActivity") {
+        var len = result[i].value.length;
+        for(var j=0; j < len ; j++){
+          var processId = result[i].value[j].$.calledElement;
+          ids.push( processId );
+        }
+      }      
+    }
+
+    if (ids.length > 0){
+      findByMeta(ids, db, append, function(idsarray){
+        getProcess(idsarray, db, append, callback);
+      })
+    } else{
+      db.close();
+      callback(append);
+    }
+  });
+}
+
+var mongoFind = function(options, db, callback)
+{
+  db.find(options).toArray(function(err, result){
+    callback(result);
+  });
+}
+
+var findByMeta = function(processesID, db, append, callback){
+  var idss = [];
+  for(var d = 0;d<processesID.length; d++){
+    idss.push({"processMeta.id": processesID[d]});
+  }
+  mongoFind({$or: idss}  , db, function(res){
+    var idArray = [];
+    for(var i =0; i<res.length; i++){
+      idArray.push(res[i].processId);
+    }
+    callback(idArray);
+  });
 }
 
 var mapToModel = function(res){
@@ -147,6 +226,18 @@ function find(items,f) {
 function nameProcessor(name) {
   var prefixMatch = new RegExp(/(?!xmlns)^.*:/);
   return  name.replace(prefixMatch, '');
+}
+
+var getMapping = function(callback){
+      var parser = new xml2js.Parser();
+      fs.readFile('process.bpmn', function(err, data) {
+          parser.parseString(data, function (err, result) {
+            var jsonFile = JSON.stringify(result);
+            var newResult = JSON.parse(jsonFile);
+            cache.put("mapping", newResult);
+            callback( newResult );
+          });
+      });
 }
 
 var getJsonFromFile = function(callback){

@@ -39,7 +39,7 @@ function onRequest(request, response) {
       getJsonFromFile(function(res){
         sw.Start();
         var resp = converter(res);
-        console.log("time: "+sw.getDifference());
+        console.log("/map time: "+sw.getDifference());
 
         finishRequest(response,JSON.stringify(resp, null, 4));
       });
@@ -50,13 +50,13 @@ function onRequest(request, response) {
     getJsonFromFile(function(res){
       sw.Start();
       var resp = mapToModel(res);
-      console.log("time: "+sw.getDifference());
+      console.log("/model time: "+sw.getDifference());
       finishRequest(response,JSON.stringify(resp, null, 4));
     });
     break;
 
     case ("/xml"):
-      gettingProcess([mongo.ObjectID("536bd9b8711053a51c856314")], function(res){
+      gettingProcess([mongo.ObjectID("53724aa42579366763512a60")], function(res){
         var builder = new xml2js.Builder();
 
         var json = {"Meta":"", "element": res };
@@ -79,7 +79,7 @@ function onRequest(request, response) {
           console.log("In else");
           getJsonFromFile(function(res){
             console.log("from file");
-            db.collection("poc_mapping").insert(converter(res).element, function(err, result){
+            db.collection("poc_mapping").insert(mapToModel(res).element, function(err, result){
               if(err) {console.log(err);finishRequest(response, "Error: please look at the log.");}
               else 
               {
@@ -134,7 +134,7 @@ function getProcess(id, db, append, callback)
 
   var idLength = id.length;
   for(var p = 0; p<idLength; p++){
-    or.push({"id" : id[p]}, {"processID" : id[p]});
+    or.push({"processId" : id[p]});
   }
 
   mongoFind({$or: or}, db, function(result){
@@ -142,9 +142,9 @@ function getProcess(id, db, append, callback)
     for(var i=0; i<length; i++) {
       append.push(result[i]);
       if(result[i].type == "callActivity") {
-        var len = result[i].list.length;
+        var len = result[i].value.length;
         for(var j=0; j < len ; j++){
-          var processId = result[i].list[j].shapeMeta.calledElement;
+          var processId = result[i].value[j].$.calledElement;
           ids.push( processId );
         }
       }      
@@ -155,6 +155,7 @@ function getProcess(id, db, append, callback)
         getProcess(idsarray, db, append, callback);
       })
     } else{
+      db.close();
       callback(append);
     }
   });
@@ -176,7 +177,7 @@ var findByMeta = function(processesID, db, append, callback){
   mongoFind({$or: idss}  , db, function(res){
     var idArray = [];
     for(var i =0; i<res.length; i++){
-      idArray.push(res[i].id);
+      idArray.push(res[i].processId);
     }
     callback(idArray);
   });
@@ -226,11 +227,7 @@ var mapToModel = function(res){
     }
     cache.put("model", {"Meta":"", "element": documents});
     return {"Meta":"", "element": documents}; 
-<<<<<<< HEAD
-}
-=======
   }
->>>>>>> b6882bff0675e2f92cf592a7a246e09ef90518b8
 
 function find(items,f) {
     for(var key in items) { 
@@ -266,14 +263,12 @@ var converter =  function(res){
     mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
     //deletes to ignore conditions in for
     delete diagrams[i].$;
-    mapping.bpmnPlane = diagrams[i].BPMNPlane[0].$;
     delete diagrams[i].BPMNPlane[0].$;
     delete processes[i].$;
     documents.push(mapping);
     mapping = {};
     //creating pdc shapes
-    delete processes[i].$;
-    for(key in processes[i]) 
+    for(key in processes[i])
     {
       //general info
       var length = processes[i][key].length;
@@ -282,40 +277,34 @@ var converter =  function(res){
       mapping.id = new mongo.ObjectID();
       mapping.processID = processID;
       mapping.type = key;
-      mapping.list = [];
-      mapping.diagram = [];
-      var shape = {};
-      var diag = {}
+      mapping.hash = hash.hashCode(new Date().toString());
+      mapping.list = root;
+      var diag = [];
+      if(key == "sequenceFlow")
+        diag = diagrams[i].BPMNPlane[0]["BPMNEdge"];
+      else
       for(var x = 0; x<length; x++)
       {
-        shape = root[x];
-        if(key == "sequenceFlow") 
-          diag = diagrams[i].BPMNPlane[0]["BPMNEdge"];
-        else{
-          var typesLenght = diagrams[i].BPMNPlane[0]["BPMNShape"].length;
-          var z=0;
-          var flag = true;
-          for(z; z<typesLenght; z++)
-          {
-            if(diagrams[i].BPMNPlane[0]["BPMNShape"][z].$)
-              if(diagrams[i].BPMNPlane[0]["BPMNShape"][z].$.bpmnElement == shape.$.id)
-                { flag = false; break;}
-          }
-          if(flag)
-            continue;
-          diag = diagrams[i].BPMNPlane[0]["BPMNShape"][z];
-          break;
+        var typesLenght = diagrams[i].BPMNPlane[0]["BPMNShape"].length;
+        var z=0;
+        var flag = true;
+        for(z; z<typesLenght; z++)
+        {
+          if(diagrams[i].BPMNPlane[0]["BPMNShape"][z].$)
+            if(diagrams[i].BPMNPlane[0]["BPMNShape"][z].$.bpmnElement == root[x].$.id)
+              { flag = false; break;}
         }
-        mapping.list.push(shape);
-        mapping.diagram.push(diag);
-        shape = diag = {};
+        if(flag)
+          continue;
+        diag.push(diagrams[i].BPMNPlane[0]["BPMNShape"][z]);
       }
+      mapping.diagram = diag;
       documents.push(mapping);
       mapping = {};
     }
   }
   cache.put("model", {"Meta":"", "element": documents});
-  return {"Meta":"", "element": documents};  
+  return {"Meta":"", "element": documents};
 };
 
 function nameProcessor(name) {
